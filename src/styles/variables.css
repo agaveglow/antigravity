@@ -1,0 +1,113 @@
+:root {
+  /* Brand Colors extracted from Background Image */
+  --color-brand-gold: #F3D060;
+  /* Top Right */
+  --color-brand-cyan: #00A8C6;
+  /* Bottom Left */
+  --color-brand-teal: #A0D8B3;
+  /* Middle */
+
+  /* Mapped to previous semantic names for compatibility, or updated */
+  --color-brand-orange: var(--color-brand-gold);
+  /* Replacing Orange with Gold */
+  --color-brand-blue: var(--color-brand-cyan);
+  /* Replacing Blue with Cyan */
+  --color-brand-purple: var(--color-brand-teal);
+  /* Replacing Purple with Teal */
+
+  /* Gradients */
+  --bg-gradient: linear-gradient(135deg, var(--color-brand-cyan) 0%, var(--color-brand-teal) 50%, var(--color-brand-gold) 100%);
+
+  /* Semantic Colors */
+  --color-primary: var(--color-brand-orange);
+  --color-primary-hover: #E68F09;
+  --color-secondary: var(--color-brand-blue);
+  --color-accent: var(--color-brand-purple);
+
+  --color-success: #34C759;
+  --color-warning: #FFD60A;
+  --color-error: #FF453A;
+  --color-info: #30B0C7;
+
+  /* Backgrounds */
+  --bg-body: #F0F4F8;
+  /* Slight cool tint */
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-sidebar: #1C1C1E;
+  /* Keep dark sidebar for contrast, or maybe Deep Blue? */
+  --bg-input: #F2F2F7;
+
+  /* Text */
+  --text-primary: #1C1C1E;
+  --text-secondary: #8E8E93;
+  --text-tertiary: #C7C7CC;
+  --text-inverse: #FFFFFF;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Borders */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --border-color: #E5E5EA;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Typography */
+  --font-sans: 'Outfit', sans-serif;
+
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+}
+
+/* Dark Theme */
+body.theme-dark {
+  --color-primary: var(--color-brand-orange);
+  --bg-body: #0A0A0B;
+  --bg-surface: rgba(28, 28, 30, 0.8);
+  /* Glassmorphic cards */
+  --bg-surface-elevated: rgba(44, 44, 46, 0.9);
+  --bg-sidebar: rgba(0, 0, 0, 0.8);
+  --bg-input: #2C2C2E;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #D1D1D6;
+  /* Much lighter than before for readability */
+  --text-tertiary: #8E8E93;
+
+  --border-color: rgba(255, 255, 255, 0.1);
+  /* Add an overlay to the background image for dark mode */
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('../assets/background.png') no-repeat center center fixed !important;
+  background-size: cover !important;
+  backdrop-filter: blur(10px);
+}
+
+/* High Contrast Theme */
+.theme-contrast {
+  --color-primary: #ffff00;
+  --color-primary-hover: #ffff00;
+  --color-on-primary: #000000;
+
+  --bg-body: #000000;
+  --bg-surface: #000000;
+  --bg-sidebar: #000000;
+
+  --text-primary: #ffffff;
+  --text-secondary: #ffff00;
+  --text-tertiary: #ffffff;
+
+  --border-color: #ffffff;
+}
