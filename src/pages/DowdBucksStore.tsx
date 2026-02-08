@@ -35,7 +35,7 @@ const DowdBucksStore: React.FC = () => {
                     <p style={{ color: 'var(--text-secondary)' }}>Spend your hard-earned rewards on exclusive flair</p>
                 </div>
                 <Card elevated style={{ padding: 'var(--space-3) var(--space-6)', display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid var(--color-brand-gold)' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--color-brand-gold)' }}>$</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--color-brand-gold)' }}>Ⓓ</span>
                     <span style={{ fontWeight: 800, fontSize: '1.5rem' }}>{user?.balance || 0}</span>
                 </Card>
             </div>
@@ -70,7 +70,7 @@ const DowdBucksStore: React.FC = () => {
                                     onClick={() => handleBuy(item.id, item.price)}
                                     disabled={!canAfford || purchasing === item.id}
                                 >
-                                    {purchasing === item.id ? 'Processing...' : `Buy ($${item.price})`}
+                                    {purchasing === item.id ? 'Processing...' : `Buy (Ⓓ${item.price})`}
                                 </Button>
                             )}
                         </Card>

@@ -4,14 +4,28 @@ import Button from '../components/common/Button';
 import { useUser } from '../context/UserContext';
 import {
     User, Mail, Camera, Save, Settings,
-    Shield, Palette,
+    Shield, Palette, Music,
     Briefcase, MapPin, Moon, Sun
 } from 'lucide-react';
+import Modal from '../components/common/Modal';
 import PageTransition from '../components/common/PageTransition';
 
 const Profile: React.FC = () => {
-    const { user, role, updateTheme } = useUser();
+    const { user, role, updateTheme, updateAvatar } = useUser();
     const [isEditing, setIsEditing] = useState(false);
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+    const avatars = [
+        { id: 'cat', color: '#FF9F0A', image: '/avatars/cat.png', label: 'Cat' },
+        { id: 'dog', color: '#32D74B', image: '/avatars/dog.png', label: 'Dog' },
+        { id: 'duck', color: '#30B0C7', image: '/avatars/ducl.png', label: 'Duck' },
+        { id: 'frog', color: '#FFD60A', image: '/avatars/frog.png', label: 'Frog' },
+        { id: 'llama', color: '#FF2D55', image: '/avatars/llama.png', label: 'Llama' },
+        { id: 'octopus', color: '#BF5AF2', image: '/avatars/octopus.png', label: 'Octopus' },
+        { id: 'panda', color: '#5E5CE6', image: '/avatars/panda.png', label: 'Panda' },
+        { id: 'parrot', color: '#FF375F', image: '/avatars/parrot.png', label: 'Parrot' },
+        { id: 'penguin', color: '#64D2FF', image: '/avatars/penguin.png', label: 'Penguin' },
+    ];
 
     // Mock editable state
     const [formData, setFormData] = useState({
@@ -64,21 +78,40 @@ const Profile: React.FC = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                         <Card elevated style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
                             <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto var(--space-4)' }}>
-                                <div style={{
-                                    width: '100%', height: '100%', borderRadius: '50%',
-                                    background: 'var(--color-brand-blue)', color: 'white',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '3rem', fontWeight: 700, boxShadow: 'var(--shadow-lg)'
-                                }}>
-                                    {user.name.charAt(0)}
-                                </div>
-                                <button style={{
-                                    position: 'absolute', bottom: '0', right: '0',
-                                    background: 'var(--color-brand-orange)', color: 'white',
-                                    width: '36px', height: '36px', borderRadius: '50%',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    border: '3px solid var(--bg-surface)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)'
-                                }}>
+                                {user.avatar ? (
+                                    <div style={{
+                                        width: '100%', height: '100%', borderRadius: '50%',
+                                        background: user.avatar, // Using color as placeholder for now
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '3rem', fontWeight: 700, boxShadow: 'var(--shadow-lg)',
+                                        color: 'white', border: '4px solid white'
+                                    }}>
+                                        {/* If it's an image URL, use img tag, else just color block */}
+                                        {user.avatar.startsWith('http') || user.avatar.startsWith('/') ? (
+                                            <img src={user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <Music size={48} />
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        width: '100%', height: '100%', borderRadius: '50%',
+                                        background: 'var(--color-brand-blue)', color: 'white',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '3rem', fontWeight: 700, boxShadow: 'var(--shadow-lg)'
+                                    }}>
+                                        {user.name.charAt(0)}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setShowAvatarModal(true)}
+                                    style={{
+                                        position: 'absolute', bottom: '0', right: '0',
+                                        background: 'var(--color-brand-orange)', color: 'white',
+                                        width: '36px', height: '36px', borderRadius: '50%',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        border: '3px solid var(--bg-surface)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)'
+                                    }}>
                                     <Camera size={18} />
                                 </button>
                             </div>
@@ -221,14 +254,45 @@ const Profile: React.FC = () => {
                                         <div style={{ fontWeight: 500 }}>Security</div>
                                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Two-factor authentication is OFF</div>
                                     </div>
-                                    <Button variant="outline" size="sm">Manage</Button>
                                 </div>
                             </div>
                         </Card>
                     </div>
                 </div>
             </div>
-        </PageTransition>
+
+            <Modal isOpen={showAvatarModal} onClose={() => setShowAvatarModal(false)} title="Choose Your Avatar">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
+                    {avatars.map(avatar => (
+                        <div
+                            key={avatar.id}
+                            onClick={() => {
+                                updateAvatar(avatar.image);
+                                setShowAvatarModal(false);
+                            }}
+                            style={{
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                cursor: 'pointer', padding: '16px', borderRadius: '12px',
+                                background: 'var(--bg-input)', border: user.avatar === avatar.image ? `2px solid ${avatar.color}` : '2px solid transparent',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.borderColor = avatar.color}
+                            onMouseLeave={(e) => e.currentTarget.style.borderColor = user.avatar === avatar.image ? avatar.color : 'transparent'}
+                        >
+                            <div style={{
+                                width: '80px', height: '80px', borderRadius: '50%',
+                                background: 'white',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                overflow: 'hidden', border: `3px solid ${avatar.color}`
+                            }}>
+                                <img src={avatar.image} alt={avatar.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{avatar.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+        </PageTransition >
     );
 };
 

@@ -4,43 +4,21 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { Search, Filter, Plus, MoreVertical, User, AlertCircle, CheckCircle } from 'lucide-react';
 import PageTransition from '../components/common/PageTransition';
+import { useStudents, type Student, type StudentStatus } from '../context/StudentsContext';
 
-type StudentStatus = 'Active' | 'At Risk' | 'Inactive';
-
-interface Student {
-    id: string;
-    name: string;
-    level: 'Level 2' | 'Level 3';
-    year: 'Year 1' | 'Year 2';
-    attendance: number;
-    status: StudentStatus;
-    email: string;
-}
-
-const mockStudents: Student[] = [
-    { id: '1', name: 'Alice Walker', level: 'Level 3', year: 'Year 1', attendance: 92, status: 'Active', email: 'alice.w@college.ac.uk' },
-    { id: '2', name: 'Bob Smith', level: 'Level 3', year: 'Year 1', attendance: 84, status: 'At Risk', email: 'bob.s@college.ac.uk' },
-    { id: '3', name: 'Charlie Davis', level: 'Level 2', year: 'Year 1', attendance: 96, status: 'Active', email: 'charlie.d@college.ac.uk' },
-    { id: '4', name: 'Diana Prince', level: 'Level 3', year: 'Year 2', attendance: 88, status: 'Active', email: 'diana.p@college.ac.uk' },
-    { id: '5', name: 'Ethan Hunt', level: 'Level 3', year: 'Year 2', attendance: 75, status: 'At Risk', email: 'ethan.h@college.ac.uk' },
-    { id: '6', name: 'Fiona Gallagher', level: 'Level 2', year: 'Year 1', attendance: 90, status: 'Active', email: 'fiona.g@college.ac.uk' },
-    { id: '7', name: 'George Martin', level: 'Level 3', year: 'Year 1', attendance: 40, status: 'Inactive', email: 'george.m@college.ac.uk' },
-];
 
 const ManageStudents: React.FC = () => {
     const navigate = useNavigate();
+    const { students, updateStudent: updateStudentInContext } = useStudents();
     const [searchTerm, setSearchTerm] = useState('');
-    const [items, setItems] = useState<Student[]>(mockStudents);
     const [selectedLevel, setSelectedLevel] = useState<string>('All');
     const [selectedYear, setSelectedYear] = useState<string>('All');
 
     const updateStudent = (id: string, field: 'level' | 'year', value: string) => {
-        setItems(prev => prev.map(s =>
-            s.id === id ? { ...s, [field]: value } : s
-        ));
+        updateStudentInContext(id, { [field]: value as any });
     };
 
-    const filteredStudents = items.filter(student => {
+    const filteredStudents = students.filter(student => {
         const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             student.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesLevel = selectedLevel === 'All' || student.level === selectedLevel;
@@ -49,9 +27,9 @@ const ManageStudents: React.FC = () => {
     });
 
     // Stats
-    const totalStudents = items.length;
-    const atRiskCount = items.filter(s => s.status === 'At Risk').length;
-    const activeCount = items.filter(s => s.status === 'Active').length;
+    const totalStudents = students.length;
+    const activeCount = students.filter((s: Student) => s.status === 'Active').length;
+    const atRiskCount = students.filter((s: Student) => s.status === 'At Risk').length;
 
     return (
         <PageTransition>

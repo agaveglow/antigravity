@@ -15,7 +15,7 @@ import PageTransition from '../components/common/PageTransition';
 const TaskSubmission: React.FC = () => {
     const { taskId } = useParams<{ taskId: string }>();
     const { projects } = useCurriculum();
-    const { user } = useUser();
+    const { user, addXp } = useUser();
     const { addSubmission, getSubmissionByTask } = useSubmissions();
     const navigate = useNavigate();
 
@@ -84,6 +84,9 @@ const TaskSubmission: React.FC = () => {
             submittedAt: new Date().toISOString()
         });
 
+        // Award XP for submission
+        addXp(task.xpReward); // Award XP based on task's xpReward
+
         setStep('success');
     };
 
@@ -128,6 +131,33 @@ const TaskSubmission: React.FC = () => {
                         Submit your evidence for {task.criteriaReferences.join(', ')}
                     </p>
                 </header>
+
+                {/* Task Description Card */}
+                <Card elevated style={{ marginBottom: 'var(--space-6)', background: 'linear-gradient(135deg, rgba(255, 159, 10, 0.05), rgba(255, 159, 10, 0.02))' }}>
+                    <h3 style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FileText size={20} />
+                        Task Description
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: 'var(--space-4)' }}>
+                        {task.description}
+                    </p>
+                    <div style={{ display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-color)' }}>
+                        <div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>XP Reward</div>
+                            <div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{task.xpReward} XP</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Criteria</div>
+                            <div style={{ fontWeight: 600 }}>{task.criteriaReferences.join(', ')}</div>
+                        </div>
+                        {task.deadline && (
+                            <div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Deadline</div>
+                                <div style={{ fontWeight: 600 }}>{new Date(task.deadline).toLocaleDateString()}</div>
+                            </div>
+                        )}
+                    </div>
+                </Card>
 
                 <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-8)' }}>
                     {['select', 'preview', 'success'].map((s, idx) => (

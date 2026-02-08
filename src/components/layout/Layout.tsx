@@ -4,8 +4,8 @@ import { useUser } from '../../context/UserContext';
 // framer-motion imports removed for stability troubleshooting
 import {
     Menu, X, User as UserIcon, LogOut, Calendar,
-    LayoutDashboard, BookOpen, GraduationCap, ShoppingBag,
-    CheckSquare, ShieldCheck, Settings, Heart, Users, FilePlus
+    LayoutDashboard, BookOpen, GraduationCap, ShoppingBag, Package, Clock,
+    CheckSquare, ShieldCheck, Heart, Users, FilePlus
 } from 'lucide-react';
 import './Layout.css';
 
@@ -28,22 +28,27 @@ const Layout: React.FC = () => {
 
     const studentLinks: NavLinkItem[] = [
         { to: '/student', label: 'Dashboard', icon: <LayoutDashboard size={20} />, end: true },
+        { to: '/student/learning', label: 'Learning', icon: <GraduationCap size={20} /> },
         { to: '/student/projects', label: 'Projects', icon: <BookOpen size={20} /> },
-        { to: '/student/grades', label: 'Grades', icon: <GraduationCap size={20} /> },
+        { to: '/student/grades', label: 'Grades', icon: <CheckSquare size={20} /> },
         { to: '/student/store', label: 'Store', icon: <ShoppingBag size={20} /> },
+        { to: '/student/inventory', label: 'Inventory', icon: <Package size={20} /> },
+        { to: '/student/resources', label: 'Studio & Equipment', icon: <Calendar size={20} /> },
     ];
 
     const teacherLinks: NavLinkItem[] = [
         { to: '/teacher', label: 'Dashboard', icon: <LayoutDashboard size={20} />, end: true },
         { to: '/teacher/students', label: 'Students', icon: <Users size={20} /> },
         { to: '/teacher/projects', label: 'Projects', icon: <BookOpen size={20} /> },
+        { to: '/teacher/quizzes', label: 'Courses', icon: <GraduationCap size={20} /> },
+        { to: '/teacher/resources', label: 'Studio & Equipment', icon: <Calendar size={20} /> },
         { to: '/teacher/ingestion', label: 'Curriculum', icon: <FilePlus size={20} /> },
         { to: '/teacher/assessment', label: 'Assessment', icon: <CheckSquare size={20} /> },
         { to: '/teacher/qa', label: 'QA & IV', icon: <ShieldCheck size={20} /> },
-        { to: '/teacher/setup', label: 'Setup', icon: <Settings size={20} /> },
     ];
 
     const sharedLinks: NavLinkItem[] = [
+        { to: '/timetable', label: 'Timetable', icon: <Clock size={20} /> },
         { to: '/calendar', label: 'Calendar', icon: <Calendar size={20} /> },
         { to: '/profile', label: 'Profile', icon: <UserIcon size={20} /> },
         { to: '/support', label: 'Support', icon: <Heart size={20} /> },
@@ -60,8 +65,16 @@ const Layout: React.FC = () => {
                     {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
                 </button>
                 <div className="logo">ERC Learn</div>
-                <div className="user-avatar-sm" onClick={() => navigate('/profile')}>
-                    <UserIcon size={16} />
+                <div className="user-avatar-sm" onClick={() => navigate('/profile')} style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {user?.avatar ? (
+                        user.avatar.startsWith('http') || user.avatar.startsWith('/') ? (
+                            <img src={user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', background: user.avatar }} />
+                        )
+                    ) : (
+                        <UserIcon size={16} />
+                    )}
                 </div>
             </header>
 
@@ -111,14 +124,24 @@ const Layout: React.FC = () => {
                 <div className="top-bar">
                     <h2 className="page-title">
                         {/* Dynamic Title based on route could go here */}
-                        {role === 'student' ? 'Student Workspace' : 'Teacher Dashboard'}
+                        {role === 'student' ? 'ERC Learn: Music' : 'Teacher Dashboard'}
                     </h2>
                     <div
                         className="avatar-placeholder"
                         onClick={() => navigate('/profile')}
-                        style={{ cursor: 'pointer' }}
+                        style={{
+                            cursor: 'pointer', overflow: 'hidden', padding: 0,
+                            background: user?.avatar && !user.avatar.startsWith('http') && !user.avatar.startsWith('/') ? user.avatar : undefined
+                        }}
                     >
-                        {user?.name?.charAt(0) || 'U'}
+                        {user?.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('/')) ? (
+                            <img src={user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : user?.avatar ? (
+                            // Avatar is color string, handled by background style above
+                            null
+                        ) : (
+                            user?.name?.charAt(0) || 'U'
+                        )}
                     </div>
                 </div>
                 <div className="content-scroll">

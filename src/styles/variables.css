@@ -37,6 +37,8 @@
   --bg-sidebar: #1C1C1E;
   /* Keep dark sidebar for contrast, or maybe Deep Blue? */
   --bg-input: #F2F2F7;
+  --bg-subtle: #F7F9FC;
+  --bg-app: var(--bg-body);
 
   /* Text */
   --text-primary: #1C1C1E;
@@ -90,7 +92,7 @@ body.theme-dark {
 
   --border-color: rgba(255, 255, 255, 0.1);
   /* Add an overlay to the background image for dark mode */
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('../assets/background.png') no-repeat center center fixed !important;
+  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('../assets/background.png') no-repeat center center fixed !important;
   background-size: cover !important;
   backdrop-filter: blur(10px);
 }

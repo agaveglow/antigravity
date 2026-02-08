@@ -207,7 +207,8 @@ const ProjectEditOverlay: React.FC<ProjectEditOverlayProps> = ({ project, onClos
         unit: project.unit,
         level: project.level,
         year: project.year,
-        deadline: project.deadline || ''
+        deadline: project.deadline || '',
+        gradingScheme: project.gradingScheme || 'Distinction'
     });
     const [tasks, setTasks] = useState<Task[]>(project.tasks);
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -351,6 +352,17 @@ const ProjectEditOverlay: React.FC<ProjectEditOverlayProps> = ({ project, onClos
                                     onChange={(e) => setMetadata({ ...metadata, deadline: e.target.value })}
                                     style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#000000', fontWeight: 500 }}
                                 />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#333333', display: 'block', marginBottom: '8px' }}>Grading Scheme</label>
+                                <select
+                                    value={metadata.gradingScheme}
+                                    onChange={(e) => setMetadata({ ...metadata, gradingScheme: e.target.value as any })}
+                                    style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#000000', fontWeight: 500 }}
+                                >
+                                    <option value="Distinction">Pass / Merit / Distinction</option>
+                                    <option value="Pass/Fail">Pass / Fail</option>
+                                </select>
                             </div>
                         </div>
                     ) : (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import { useCurriculum } from '../context/CurriculumContext';
 import { ChevronLeft, FileText, Download, Music, Globe, CheckCircle2, Video } from 'lucide-react';
 import { type Grade } from '../types/ual';
 import { useSubmissions, type Submission } from '../context/SubmissionContext';
@@ -11,6 +12,7 @@ const AssessmentView: React.FC = () => {
     const { submissionId } = useParams<{ submissionId: string }>();
     const navigate = useNavigate();
     const { submissions, updateSubmission } = useSubmissions();
+    const { getProjectById } = useCurriculum();
 
     // Find the submission (either real or mock)
     const submission = submissions.find(s => s.id === submissionId) || (submissionId?.startsWith('m') ? {
@@ -32,7 +34,12 @@ const AssessmentView: React.FC = () => {
 
     if (!submission) return <div>Submission not found</div>;
 
-    const grades: Grade[] = ['Fail', 'Pass', 'Merit', 'Distinction', 'Referred'];
+    const project = getProjectById(submission.projectId);
+    const scheme = project?.gradingScheme || 'Distinction';
+
+    const grades: Grade[] = scheme === 'Pass/Fail'
+        ? ['Fail', 'Pass', 'Referred']
+        : ['Fail', 'Pass', 'Merit', 'Distinction', 'Referred'];
 
     const handleSave = () => {
         if (submissionId && !submissionId.startsWith('m')) {

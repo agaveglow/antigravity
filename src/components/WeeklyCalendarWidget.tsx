@@ -56,7 +56,7 @@ const WeeklyCalendarWidget: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
                 {weekDays.map((day, i) => {
-                    const dayEvents = events.filter((e: CalendarEvent) => isSameDay(parseISO(e.startDate), day));
+                    const dayEvents = (events || []).filter((e: CalendarEvent) => isSameDay(parseISO(e.startDate), day));
                     const isCurrentDay = isToday(day);
 
                     return (

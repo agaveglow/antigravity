@@ -93,7 +93,8 @@ const CurriculumIngestion: React.FC = () => {
                 learningOutcomes: preview.learningOutcomes || [],
                 assessmentCriteria: preview.assessmentCriteria || [],
                 deadline: preview.deadline,
-                published: true
+                published: true,
+                gradingScheme: preview.gradingScheme || 'Distinction'
             };
             addProject(newProject);
             navigate('/teacher/projects');
@@ -265,6 +266,19 @@ const CurriculumIngestion: React.FC = () => {
                                         onChange={(e) => setPreview({ ...preview, deadline: e.target.value })}
                                         style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: '#000000' }}
                                     />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <CheckCircle2 size={12} /> Grading Scheme
+                                    </label>
+                                    <select
+                                        value={preview.gradingScheme || 'Distinction'}
+                                        onChange={(e) => setPreview({ ...preview, gradingScheme: e.target.value as any })}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: '#000000' }}
+                                    >
+                                        <option value="Distinction" style={{ background: 'var(--bg-surface)', color: '#000000' }}>Pass / Merit / Distinction</option>
+                                        <option value="Pass/Fail" style={{ background: 'var(--bg-surface)', color: '#000000' }}>Pass / Fail</option>
+                                    </select>
                                 </div>
                             </div>
                         </Card>

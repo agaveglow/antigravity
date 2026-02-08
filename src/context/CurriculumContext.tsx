@@ -19,6 +19,21 @@ const CurriculumContext = createContext<CurriculumContextType | undefined>(undef
 export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [projects, setProjects] = useState<ProjectBrief[]>([]);
     const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // Save projects to localStorage whenever they change (after initial load)
+    useEffect(() => {
+        if (isInitialized) {
+            localStorage.setItem('erc-curriculum', JSON.stringify(projects));
+        }
+    }, [projects, isInitialized]);
+
+    // Save events to localStorage whenever they change (after initial load)
+    useEffect(() => {
+        if (isInitialized) {
+            localStorage.setItem('erc-events', JSON.stringify(events));
+        }
+    }, [events, isInitialized]);
 
     // Load from local storage or set defaults
     useEffect(() => {
@@ -67,13 +82,10 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ];
             setEvents(defaultEvents);
         }
-    }, []);
 
-    // Save to local storage
-    useEffect(() => {
-        localStorage.setItem('erc-curriculum', JSON.stringify(projects));
-        localStorage.setItem('erc-events', JSON.stringify(events));
-    }, [projects, events]);
+        // Mark as initialized after loading
+        setIsInitialized(true);
+    }, []);
 
     const addProject = (project: ProjectBrief) => {
         setProjects(prev => [...prev, project]);

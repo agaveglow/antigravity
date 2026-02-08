@@ -253,6 +253,14 @@
     color: var(--text-primary);
 }
 
+.user-avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 768px) {
     .layout-container {
@@ -303,5 +311,10 @@
         margin: 0;
         border-radius: 0;
         height: calc(100vh - 60px);
+    }
+
+    /* Hide redundant avatar in top-bar on mobile since it's in mobile-header */
+    .top-bar .avatar-placeholder {
+        display: none;
     }
 }

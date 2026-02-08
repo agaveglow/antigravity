@@ -44,6 +44,7 @@ const Calendar: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isAddingEvent, setIsAddingEvent] = useState(false);
     const [activeFilters, setActiveFilters] = useState<EventCategory[]>(['Project', 'Task', 'School', 'Personal', 'External']);
+    const [selectedDayForDetails, setSelectedDayForDetails] = useState<Date | null>(null);
 
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
@@ -270,7 +271,212 @@ const Calendar: React.FC = () => {
 
     // Calendar Helper Functions
     const header = () => {
-        const dateFormat = "MMMM yyyy";
+        const renderHeaderControls = () => (
+            <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.5rem', flexWrap: 'wrap', flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                {/* Mobile View Switcher */}
+                {isMobile && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08))',
+                        padding: '4px',
+                        borderRadius: '16px',
+                        display: 'flex',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                        flex: '1 1 100%',
+                        marginBottom: '0.5rem'
+                    }}>
+                        <button
+                            onClick={() => setViewMode('day')}
+                            style={{
+                                flex: 1,
+                                padding: '12px 16px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                background: viewMode === 'day' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                boxShadow: viewMode === 'day' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                                transform: viewMode === 'day' ? 'scale(1.02)' : 'scale(1)'
+                            }}
+                        >Day</button>
+                        <button
+                            onClick={() => setViewMode('week')}
+                            style={{
+                                flex: 1,
+                                padding: '12px 16px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                background: viewMode === 'week' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                boxShadow: viewMode === 'week' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                                transform: viewMode === 'week' ? 'scale(1.02)' : 'scale(1)'
+                            }}
+                        >Week</button>
+                        <button
+                            onClick={() => setViewMode('month')}
+                            style={{
+                                flex: 1,
+                                padding: '12px 16px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                background: viewMode === 'month' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                boxShadow: viewMode === 'month' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                                transform: viewMode === 'month' ? 'scale(1.02)' : 'scale(1)'
+                            }}
+                        >Month</button>
+                    </div>
+                )}
+
+                {/* Desktop View Switcher */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05))',
+                    padding: '6px',
+                    borderRadius: '14px',
+                    display: isMobile ? 'none' : 'flex',
+                    marginRight: '1rem',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                }}>
+                    <button
+                        onClick={() => setViewMode('day')}
+                        style={{
+                            padding: '10px 18px',
+                            border: 'none',
+                            borderRadius: '10px',
+                            background: viewMode === 'day' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            fontWeight: 700,
+                            fontSize: '0.9rem',
+                            boxShadow: viewMode === 'day' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                            transform: viewMode === 'day' ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                    >Day</button>
+                    <button
+                        onClick={() => setViewMode('week')}
+                        style={{
+                            padding: '10px 18px',
+                            border: 'none',
+                            borderRadius: '10px',
+                            background: viewMode === 'week' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            fontWeight: 700,
+                            fontSize: '0.9rem',
+                            boxShadow: viewMode === 'week' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                            transform: viewMode === 'week' ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                    >Week</button>
+                    <button
+                        onClick={() => setViewMode('month')}
+                        style={{
+                            padding: '10px 18px',
+                            border: 'none',
+                            borderRadius: '10px',
+                            background: viewMode === 'month' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            fontWeight: 700,
+                            fontSize: '0.9rem',
+                            boxShadow: viewMode === 'month' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
+                            transform: viewMode === 'month' ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                    >Month</button>
+                </div>
+
+                <Button
+                    variant="secondary"
+                    onClick={() => {
+                        if (viewMode === 'day') {
+                            setCurrentDate(addDays(currentDate, -1));
+                        } else if (viewMode === 'week') {
+                            setCurrentDate(addDays(currentDate, -7));
+                        } else {
+                            setCurrentDate(subMonths(currentDate, 1));
+                        }
+                    }}
+                    style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined }}
+                >
+                    <ChevronLeft size={isMobile ? 22 : 20} />
+                </Button>
+                <Button variant="secondary" onClick={() => setCurrentDate(new Date())} style={{ minWidth: isMobile ? '70px' : 'auto', padding: isMobile ? '12px 16px' : undefined, fontWeight: isMobile ? 700 : 500 }}>Today</Button>
+                <Button
+                    variant="secondary"
+                    onClick={() => {
+                        if (viewMode === 'day') {
+                            setCurrentDate(addDays(currentDate, 1));
+                        } else if (viewMode === 'week') {
+                            setCurrentDate(addDays(currentDate, 7));
+                        } else {
+                            setCurrentDate(addMonths(currentDate, 1));
+                        }
+                    }}
+                    style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined }}
+                >
+                    <ChevronRight size={20} />
+                </Button>
+
+                {!isMobile && (
+                    <Button variant="secondary" onClick={() => setShowSidebar(!showSidebar)}>
+                        <Filter size={20} /> {showSidebar ? 'Hide' : 'Show'} Filters
+                    </Button>
+                )}
+
+                <Button variant="primary" onClick={() => setIsAddingEvent(true)} style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined, boxShadow: isMobile ? '0 4px 16px rgba(255, 159, 10, 0.4)' : undefined }}>
+                    <Plus size={isMobile ? 22 : 20} /> {!isMobile && 'Add Event'}
+                </Button>
+            </div>
+        );
+
+        let dateFormat = "MMMM yyyy";
+        let displayDate = currentDate;
+
+        if (viewMode === 'day') {
+            dateFormat = "EEEE, MMMM d, yyyy";
+        } else if (viewMode === 'week') {
+            const weekStart = startOfWeek(currentDate);
+            const weekEnd = endOfWeek(currentDate);
+            return (
+                <div className="calendar-header" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: isMobile ? '0.75rem' : '2rem',
+                    padding: isMobile ? '1rem' : '1rem',
+                    background: isMobile ? 'linear-gradient(135deg, rgba(255, 159, 10, 0.2), rgba(255, 159, 10, 0.05))' : 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: isMobile ? '20px' : '16px',
+                    border: isMobile ? '2px solid rgba(255, 159, 10, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    flexWrap: 'wrap',
+                    gap: isMobile ? '0.75rem' : '0.5rem',
+                    boxShadow: isMobile ? '0 8px 24px rgba(255, 159, 10, 0.15)' : 'none'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1rem', flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                        <CalendarDays className="text-primary" size={isMobile ? 24 : 28} style={{ filter: isMobile ? 'drop-shadow(0 2px 4px rgba(255, 159, 10, 0.5))' : 'none' }} />
+                        <h2 style={{ margin: 0, fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, textShadow: isMobile ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none' }}>
+                            {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                        </h2>
+                    </div>
+                    {renderHeaderControls()}
+                </div>
+            );
+        }
+
         return (
             <div className="calendar-header" style={{
                 display: 'flex',
@@ -288,154 +494,9 @@ const Calendar: React.FC = () => {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1rem', flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                     <CalendarDays className="text-primary" size={isMobile ? 24 : 28} style={{ filter: isMobile ? 'drop-shadow(0 2px 4px rgba(255, 159, 10, 0.5))' : 'none' }} />
-                    <h2 style={{ margin: 0, fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, textShadow: isMobile ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none' }}>{format(currentDate, dateFormat)}</h2>
+                    <h2 style={{ margin: 0, fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 700, textShadow: isMobile ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none' }}>{format(displayDate, dateFormat)}</h2>
                 </div>
-
-                <div style={{ display: 'flex', gap: isMobile ? '0.5rem' : '0.5rem', flexWrap: 'wrap', flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                    {/* Mobile View Switcher */}
-                    {isMobile && (
-                        <div style={{
-                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08))',
-                            padding: '4px',
-                            borderRadius: '16px',
-                            display: 'flex',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                            flex: '1 1 100%',
-                            marginBottom: '0.5rem'
-                        }}>
-                            <button
-                                onClick={() => setViewMode('day')}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px 16px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    background: viewMode === 'day' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    boxShadow: viewMode === 'day' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                    transform: viewMode === 'day' ? 'scale(1.02)' : 'scale(1)'
-                                }}
-                            >Day</button>
-                            <button
-                                onClick={() => setViewMode('week')}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px 16px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    background: viewMode === 'week' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    boxShadow: viewMode === 'week' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                    transform: viewMode === 'week' ? 'scale(1.02)' : 'scale(1)'
-                                }}
-                            >Week</button>
-                            <button
-                                onClick={() => setViewMode('month')}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px 16px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    background: viewMode === 'month' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    boxShadow: viewMode === 'month' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                    transform: viewMode === 'month' ? 'scale(1.02)' : 'scale(1)'
-                                }}
-                            >Month</button>
-                        </div>
-                    )}
-
-                    {/* Desktop View Switcher */}
-                    <div style={{
-                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05))',
-                        padding: '6px',
-                        borderRadius: '14px',
-                        display: isMobile ? 'none' : 'flex',
-                        marginRight: '1rem',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                    }}>
-                        <button
-                            onClick={() => setViewMode('day')}
-                            style={{
-                                padding: '10px 18px',
-                                border: 'none',
-                                borderRadius: '10px',
-                                background: viewMode === 'day' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                color: 'white',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                fontWeight: 700,
-                                fontSize: '0.9rem',
-                                boxShadow: viewMode === 'day' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                transform: viewMode === 'day' ? 'scale(1.05)' : 'scale(1)'
-                            }}
-                        >Day</button>
-                        <button
-                            onClick={() => setViewMode('week')}
-                            style={{
-                                padding: '10px 18px',
-                                border: 'none',
-                                borderRadius: '10px',
-                                background: viewMode === 'week' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                color: 'white',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                fontWeight: 700,
-                                fontSize: '0.9rem',
-                                boxShadow: viewMode === 'week' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                transform: viewMode === 'week' ? 'scale(1.05)' : 'scale(1)'
-                            }}
-                        >Week</button>
-                        <button
-                            onClick={() => setViewMode('month')}
-                            style={{
-                                padding: '10px 18px',
-                                border: 'none',
-                                borderRadius: '10px',
-                                background: viewMode === 'month' ? 'linear-gradient(135deg, var(--primary-color), #ff8c42)' : 'transparent',
-                                color: 'white',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                fontWeight: 700,
-                                fontSize: '0.9rem',
-                                boxShadow: viewMode === 'month' ? '0 4px 12px rgba(255, 159, 10, 0.4)' : 'none',
-                                transform: viewMode === 'month' ? 'scale(1.05)' : 'scale(1)'
-                            }}
-                        >Month</button>
-                    </div>
-
-                    <Button variant="secondary" onClick={() => setCurrentDate(subMonths(currentDate, 1))} style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined }}>
-                        <ChevronLeft size={isMobile ? 22 : 20} />
-                    </Button>
-                    <Button variant="secondary" onClick={() => setCurrentDate(new Date())} style={{ minWidth: isMobile ? '70px' : 'auto', padding: isMobile ? '12px 16px' : undefined, fontWeight: isMobile ? 700 : 500 }}>Today</Button>
-                    <Button variant="secondary" onClick={() => setCurrentDate(addMonths(currentDate, 1))} style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined }}>
-                        <ChevronRight size={20} />
-                    </Button>
-
-                    {!isMobile && (
-                        <Button variant="secondary" onClick={() => setShowSidebar(!showSidebar)}>
-                            <Filter size={20} /> {showSidebar ? 'Hide' : 'Show'} Filters
-                        </Button>
-                    )}
-
-                    <Button variant="primary" onClick={() => setIsAddingEvent(true)} style={{ minWidth: isMobile ? '48px' : 'auto', padding: isMobile ? '12px' : undefined, boxShadow: isMobile ? '0 4px 16px rgba(255, 159, 10, 0.4)' : undefined }}>
-                        <Plus size={isMobile ? 22 : 20} /> {!isMobile && 'Add Event'}
-                    </Button>
-                </div>
+                {renderHeaderControls()}
             </div>
         );
     };
@@ -493,7 +554,10 @@ const Calendar: React.FC = () => {
                             cursor: 'pointer',
                             overflow: 'hidden'
                         }}
-                        onClick={() => setSelectedDate(cloneDay)}
+                        onClick={() => {
+                            setSelectedDate(cloneDay);
+                            setSelectedDayForDetails(cloneDay);
+                        }}
                     >
                         <span style={{
                             fontSize: isMobile ? '0.7rem' : '0.9rem',
@@ -700,10 +764,10 @@ const Calendar: React.FC = () => {
                     minHeight: viewMode === 'day' ? '700px' : viewMode === 'week' ? '600px' : '500px'
                 }}>
                     {viewMode === 'day' && (
-                        <DayView selectedDate={selectedDate} allEvents={allEvents} openEditModal={openEditModal} getCategoryColor={getCategoryColor} role={role} />
+                        <DayView selectedDate={currentDate} allEvents={allEvents} openEditModal={openEditModal} getCategoryColor={getCategoryColor} role={role} />
                     )}
                     {viewMode === 'week' && (
-                        <WeekView selectedDate={selectedDate} allEvents={allEvents} setSelectedDate={setSelectedDate} openEditModal={openEditModal} getCategoryColor={getCategoryColor} role={role} />
+                        <WeekView selectedDate={currentDate} allEvents={allEvents} setSelectedDate={setCurrentDate} openEditModal={openEditModal} getCategoryColor={getCategoryColor} role={role} />
                     )}
                     {viewMode === 'month' && (
                         <>
@@ -712,6 +776,158 @@ const Calendar: React.FC = () => {
                         </>
                     )}
                 </Card>
+
+                {/* Day Details Section */}
+                {viewMode === 'month' && selectedDayForDetails && (
+                    <Card style={{
+                        marginTop: 'var(--space-5)',
+                        padding: 'var(--space-5)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04))',
+                        border: '2px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-3)', borderBottom: '3px solid var(--primary-color)' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700 }}>
+                                    {format(selectedDayForDetails, 'EEEE, MMMM d, yyyy')}
+                                </h3>
+                                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                    {isToday(selectedDayForDetails) && <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Today • </span>}
+                                    {allEvents.filter(e => isSameDay(parseISO(e.startDate), selectedDayForDetails)).length} {allEvents.filter(e => isSameDay(parseISO(e.startDate), selectedDayForDetails)).length === 1 ? 'event' : 'events'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedDayForDetails(null)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: '2px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '0.5rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                    e.currentTarget.style.transform = 'scale(1.05)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                            {allEvents.filter(e => isSameDay(parseISO(e.startDate), selectedDayForDetails)).length === 0 ? (
+                                <div style={{
+                                    padding: 'var(--space-8)',
+                                    textAlign: 'center',
+                                    color: 'var(--text-secondary)',
+                                    fontSize: '0.95rem',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '12px',
+                                    border: '2px dashed var(--border-color)',
+                                    fontWeight: 500
+                                }}>
+                                    No events scheduled for this day
+                                </div>
+                            ) : (
+                                allEvents
+                                    .filter(e => isSameDay(parseISO(e.startDate), selectedDayForDetails))
+                                    .map(event => (
+                                        <div
+                                            key={event.id}
+                                            style={{
+                                                padding: 'var(--space-4)',
+                                                background: getCategoryColor(event.category),
+                                                borderRadius: '12px',
+                                                border: `3px solid rgba(255, 255, 255, 0.3)`,
+                                                borderLeft: `6px solid rgba(255, 255, 255, 0.5)`,
+                                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                                cursor: event.isLocked ? 'default' : 'pointer',
+                                                boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3)`,
+                                                color: 'white'
+                                            }}
+                                            onClick={() => !event.isLocked && openEditModal(event)}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = `0 8px 20px rgba(0, 0, 0, 0.4)`;
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.3)`;
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                        {event.isLocked && <Lock size={16} style={{ color: 'white' }} />}
+                                                        <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'white' }}>
+                                                            {event.title}
+                                                        </h4>
+                                                    </div>
+                                                    {event.description && (
+                                                        <p style={{ margin: '0.5rem 0 0 0', color: 'rgba(255, 255, 255, 0.9)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                                            {event.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div style={{
+                                                    background: 'rgba(255, 255, 255, 0.25)',
+                                                    color: 'white',
+                                                    padding: '0.4rem 0.85rem',
+                                                    borderRadius: '10px',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 700,
+                                                    boxShadow: `0 2px 8px rgba(0, 0, 0, 0.2)`,
+                                                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    {event.category}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem',
+                                                    background: 'rgba(0, 0, 0, 0.25)',
+                                                    padding: '0.5rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                                                }}>
+                                                    <Clock size={16} style={{ color: 'white' }} />
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>
+                                                        {event.allDay ? 'All Day' : format(parseISO(event.startDate), 'h:mm a')}
+                                                    </span>
+                                                </div>
+                                                {event.relatedId && (
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem',
+                                                        background: 'rgba(0, 0, 0, 0.25)',
+                                                        padding: '0.5rem 0.75rem',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                                                    }}>
+                                                        <Briefcase size={16} style={{ color: 'white' }} />
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>Linked to project</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                            )}
+                        </div>
+                    </Card>
+                )}
             </div>
 
             {isAddingEvent && (

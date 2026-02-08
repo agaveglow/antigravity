@@ -22,3 +22,24 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
 }
+
+/* Shapes */
+.card-rounded {
+    border-radius: var(--border-radius-lg);
+}
+
+.card-square {
+    border-radius: var(--border-radius-sm);
+}
+
+.card-pill {
+    border-radius: 9999px;
+}
+
+.card-leaf-1 {
+    border-radius: 40px 10px 40px 10px;
+}
+
+.card-leaf-2 {
+    border-radius: 10px 40px 10px 40px;
+}

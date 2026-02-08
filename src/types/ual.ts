@@ -40,6 +40,7 @@ export interface ProjectBrief {
   assessmentCriteria: AssessmentCriteria[];
   deadline?: string; // ISO Date
   published: boolean;
+  gradingScheme?: 'Pass/Fail' | 'Distinction';
 }
 
 export interface StudentProgress {
@@ -69,3 +70,55 @@ export interface TeacherEvent extends CalendarEvent {
   isShared: boolean; // If true, visible to students in certain cohorts
   targetCohorts?: string[]; // IDs of levels/years if shared
 }
+
+export interface Question {
+  id: string;
+  text: string;
+  type: 'multiple-choice' | 'true-false' | 'listening' | 'instrument';
+  options: { id: string; text: string; isCorrect?: boolean }[];
+  correctOptionId: string;
+  // For advanced types
+  metadata?: {
+    interval?: { note1: string; octave1: number; note2: string; octave2: number; label: string }; // For listening
+    instrument?: { type: 'guitar' | 'piano'; correctNote: string; correctString?: number; correctFret?: number }; // For visual
+    audioUrl?: string; // Optional pre-recorded audio
+  };
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string; // Optional cover image
+  color?: string; // Hex code for theme
+  order?: number; // For sorting
+  createdAt: string;
+}
+
+export interface Quiz {
+  id: string;
+  courseId?: string; // Link to a Course
+  title: string;
+  description: string;
+  questions: Question[];
+  xpReward: number;
+  dowdBucksReward: number;
+  projectId?: string; // Optional link to a project
+  status: 'draft' | 'published';
+  order?: number; // For roadmap sequencing
+  createdAt: string;
+}
+
+export interface Lesson {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string; // Short description
+  content: string; // Markdown or HTML content
+  order: number;
+  type: 'lesson'; // discriminator
+  xpReward: number; // Small reward for reading
+  createdAt: string;
+}
+
+export type RoadmapItem = (Quiz & { type: 'quiz' }) | Lesson;

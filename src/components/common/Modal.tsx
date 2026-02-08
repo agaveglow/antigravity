@@ -5,9 +5,10 @@ interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
     children: React.ReactNode;
+    title?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
     if (!isOpen) return null;
 
     return (
@@ -34,10 +35,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
                     maxWidth: '90vw',
                     maxHeight: '90vh',
                     overflow: 'auto',
-                    animation: 'modalSlideIn 0.3s ease-out'
+                    animation: 'modalSlideIn 0.3s ease-out',
+                    width: '500px'
                 }}
             >
-                <Card elevated style={{ margin: 0 }}>
+                <Card elevated style={{ margin: 0, padding: 'var(--space-6)' }}>
+                    {title && (
+                        <h2 style={{ marginTop: 0, marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
+                            {title}
+                        </h2>
+                    )}
                     {children}
                 </Card>
             </div>

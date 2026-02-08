@@ -1,262 +1,351 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import Button from '../common/Button';
 
-const noteStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+// Note frequency helper
+const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+const getFrequency = (note: string, octave: number): number => {
+    const semitonesFromA4 = NOTES.indexOf(note) - NOTES.indexOf('A') + (octave - 4) * 12;
+    return 440 * Math.pow(2, semitonesFromA4 / 12);
+};
+
+// Instrument Definitions
+type InstrumentConfig = {
+    name: string;
+    tunings: Record<string, { name: string; strings: { note: string; octave: number }[] }>;
+};
+
+const INSTRUMENTS: Record<string, InstrumentConfig> = {
+    guitar: {
+        name: 'Guitar (6-String)',
+        tunings: {
+            standard: {
+                name: 'Standard',
+                strings: [
+                    { note: 'E', octave: 2 },
+                    { note: 'A', octave: 2 },
+                    { note: 'D', octave: 3 },
+                    { note: 'G', octave: 3 },
+                    { note: 'B', octave: 3 },
+                    { note: 'E', octave: 4 },
+                ]
+            },
+            dropD: {
+                name: 'Drop D',
+                strings: [
+                    { note: 'D', octave: 2 },
+                    { note: 'A', octave: 2 },
+                    { note: 'D', octave: 3 },
+                    { note: 'G', octave: 3 },
+                    { note: 'B', octave: 3 },
+                    { note: 'E', octave: 4 },
+                ]
+            },
+            halfStepDown: {
+                name: 'Half Step Down',
+                strings: [
+                    { note: 'D#', octave: 2 },
+                    { note: 'G#', octave: 2 },
+                    { note: 'C#', octave: 3 },
+                    { note: 'F#', octave: 3 },
+                    { note: 'A#', octave: 3 },
+                    { note: 'D#', octave: 4 },
+                ]
+            },
+            openG: {
+                name: 'Open G',
+                strings: [
+                    { note: 'D', octave: 2 },
+                    { note: 'G', octave: 2 },
+                    { note: 'D', octave: 3 },
+                    { note: 'G', octave: 3 },
+                    { note: 'B', octave: 3 },
+                    { note: 'D', octave: 4 },
+                ]
+            },
+            openD: {
+                name: 'Open D',
+                strings: [
+                    { note: 'D', octave: 2 },
+                    { note: 'A', octave: 2 },
+                    { note: 'D', octave: 3 },
+                    { note: 'F#', octave: 3 },
+                    { note: 'A', octave: 3 },
+                    { note: 'D', octave: 4 },
+                ]
+            },
+            dadgad: {
+                name: 'DADGAD',
+                strings: [
+                    { note: 'D', octave: 2 },
+                    { note: 'A', octave: 2 },
+                    { note: 'D', octave: 3 },
+                    { note: 'G', octave: 3 },
+                    { note: 'A', octave: 3 },
+                    { note: 'D', octave: 4 },
+                ]
+            }
+        }
+    },
+    bass: {
+        name: 'Bass (4-String)',
+        tunings: {
+            standard: {
+                name: 'Standard',
+                strings: [
+                    { note: 'E', octave: 1 },
+                    { note: 'A', octave: 1 },
+                    { note: 'D', octave: 2 },
+                    { note: 'G', octave: 2 },
+                ]
+            },
+            dropD: {
+                name: 'Drop D',
+                strings: [
+                    { note: 'D', octave: 1 },
+                    { note: 'A', octave: 1 },
+                    { note: 'D', octave: 2 },
+                    { note: 'G', octave: 2 },
+                ]
+            }
+        }
+    },
+    violin: {
+        name: 'Violin',
+        tunings: {
+            standard: {
+                name: 'Standard',
+                strings: [
+                    { note: 'G', octave: 3 },
+                    { note: 'D', octave: 4 },
+                    { note: 'A', octave: 4 },
+                    { note: 'E', octave: 5 },
+                ]
+            }
+        }
+    },
+    ukulele: {
+        name: 'Ukulele',
+        tunings: {
+            standard: {
+                name: 'Standard (GCEA)',
+                strings: [
+                    { note: 'G', octave: 4 },
+                    { note: 'C', octave: 4 },
+                    { note: 'E', octave: 4 },
+                    { note: 'A', octave: 4 },
+                ]
+            }
+        }
+    }
+};
 
 const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [isListening, setIsListening] = useState(false);
-    const [frequency, setFrequency] = useState(0);
-    const [note, setNote] = useState('');
-    const [cents, setCents] = useState(0);
-    const [octave, setOctave] = useState(0);
-
+    const [instrument, setInstrument] = useState<string>('guitar');
+    const [tuningKey, setTuningKey] = useState<string>('standard');
+    const [activeStringIndex, setActiveStringIndex] = useState<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
+    const oscillatorRef = useRef<OscillatorNode | null>(null);
+    const gainNodeRef = useRef<GainNode | null>(null);
 
-    const frequencyToNote = (freq: number) => {
-        const noteNum = 12 * (Math.log(freq / 440) / Math.log(2));
-        const roundedNoteNum = Math.round(noteNum) + 69;
-        const noteName = noteStrings[roundedNoteNum % 12];
-        const octaveNum = Math.floor(roundedNoteNum / 12) - 1;
-        const centOffset = Math.floor((noteNum - Math.round(noteNum)) * 100);
+    // Current string configuration (allows for custom modifications)
+    const [currentStrings, setCurrentStrings] = useState(INSTRUMENTS['guitar'].tunings['standard'].strings);
 
-        return { noteName, octaveNum, centOffset };
-    };
-
-    const autoCorrelate = (buffer: Float32Array, sampleRate: number): number => {
-        let SIZE = buffer.length;
-        let rms = 0;
-
-        for (let i = 0; i < SIZE; i++) {
-            const val = buffer[i];
-            rms += val * val;
-        }
-        rms = Math.sqrt(rms / SIZE);
-
-        if (rms < 0.01) return -1;
-
-        let r1 = 0, r2 = SIZE - 1, thres = 0.2;
-        for (let i = 0; i < SIZE / 2; i++) {
-            if (Math.abs(buffer[i]) < thres) { r1 = i; break; }
-        }
-        for (let i = 1; i < SIZE / 2; i++) {
-            if (Math.abs(buffer[SIZE - i]) < thres) { r2 = SIZE - i; break; }
-        }
-
-        buffer = buffer.slice(r1, r2);
-        SIZE = buffer.length;
-
-        const c = new Array(SIZE).fill(0);
-        for (let i = 0; i < SIZE; i++) {
-            for (let j = 0; j < SIZE - i; j++) {
-                c[i] = c[i] + buffer[j] * buffer[j + i];
-            }
-        }
-
-        let d = 0;
-        while (c[d] > c[d + 1]) d++;
-
-        let maxval = -1, maxpos = -1;
-        for (let i = d; i < SIZE; i++) {
-            if (c[i] > maxval) {
-                maxval = c[i];
-                maxpos = i;
-            }
-        }
-
-        let T0 = maxpos;
-
-        const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
-        const a = (x1 + x3 - 2 * x2) / 2;
-        const b = (x3 - x1) / 2;
-        if (a) T0 = T0 - b / (2 * a);
-
-        return sampleRate / T0;
-    };
-
-    const updatePitch = () => {
-        if (!analyserRef.current) return;
-
-        const analyser = analyserRef.current;
-        const bufferLength = analyser.fftSize;
-        const buffer = new Float32Array(bufferLength);
-        analyser.getFloatTimeDomainData(buffer);
-
-        const detectedFreq = autoCorrelate(buffer, audioContextRef.current!.sampleRate);
-
-        if (detectedFreq > 0 && detectedFreq < 4000) {
-            setFrequency(detectedFreq);
-            const { noteName, octaveNum, centOffset } = frequencyToNote(detectedFreq);
-            setNote(noteName);
-            setOctave(octaveNum);
-            setCents(centOffset);
-        }
-
-        animationFrameRef.current = requestAnimationFrame(updatePitch);
-    };
-
-    const startListening = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            streamRef.current = stream;
-
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const source = audioContextRef.current.createMediaStreamSource(stream);
-
-            analyserRef.current = audioContextRef.current.createAnalyser();
-            analyserRef.current.fftSize = 2048;
-            source.connect(analyserRef.current);
-
-            setIsListening(true);
-            updatePitch();
-        } catch (err) {
-            console.error('Error accessing microphone:', err);
-            alert('Unable to access microphone. Please grant permission.');
-        }
-    };
-
-    const stopListening = () => {
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-        }
-        if (audioContextRef.current) {
-            audioContextRef.current.close();
-        }
-        setIsListening(false);
-        setFrequency(0);
-        setNote('');
-        setCents(0);
-    };
-
+    // Initialize Audio Context
     useEffect(() => {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         return () => {
-            stopListening();
+            stopTone();
+            audioContextRef.current?.close();
         };
     }, []);
 
-    const getTuningColor = () => {
-        if (!note) return 'rgba(255, 255, 255, 0.3)';
-        if (Math.abs(cents) < 5) return '#34C759'; // Green - in tune
-        if (Math.abs(cents) < 15) return '#FF9F0A'; // Orange - close
-        return '#FF2D55'; // Red - out of tune
+    // Update strings when instrument/tuning changes
+    useEffect(() => {
+        if (INSTRUMENTS[instrument]?.tunings[tuningKey]) {
+            setCurrentStrings(INSTRUMENTS[instrument].tunings[tuningKey].strings);
+            stopTone();
+        }
+    }, [instrument, tuningKey]);
+
+    const playTone = (note: string, octave: number, index: number) => {
+        if (!audioContextRef.current) return;
+
+        // If clicking the same string, toggle off
+        if (activeStringIndex === index) {
+            stopTone();
+            return;
+        }
+
+        stopTone(); // Stop any previous tone
+
+        const ctx = audioContextRef.current;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle'; // Richer than sine, good for tuning
+        osc.frequency.value = getFrequency(note, octave);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        // Soft attack
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+
+        osc.start();
+
+        oscillatorRef.current = osc;
+        gainNodeRef.current = gain;
+        setActiveStringIndex(index);
     };
 
-    const getTuningMessage = () => {
-        if (!note) return 'Play a note';
-        if (Math.abs(cents) < 5) return 'In Tune!';
-        if (cents > 0) return 'Too Sharp';
-        return 'Too Flat';
+    const stopTone = () => {
+        if (oscillatorRef.current && gainNodeRef.current && audioContextRef.current) {
+            const ctx = audioContextRef.current;
+            const gain = gainNodeRef.current;
+
+            // Soft release
+            gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+
+            const osc = oscillatorRef.current;
+            setTimeout(() => {
+                try { osc.stop(); } catch (e) { }
+            }, 150);
+
+            oscillatorRef.current = null;
+            gainNodeRef.current = null;
+        }
+        setActiveStringIndex(null);
+    };
+
+    const adjustString = (index: number, semitones: number) => {
+        const newStrings = [...currentStrings];
+        const s = newStrings[index];
+
+        let newNoteIndex = NOTES.indexOf(s.note) + semitones;
+        let newOctave = s.octave;
+
+        if (newNoteIndex >= NOTES.length) {
+            newNoteIndex -= 12;
+            newOctave += 1;
+        } else if (newNoteIndex < 0) {
+            newNoteIndex += 12;
+            newOctave -= 1;
+        }
+
+        newStrings[index] = { note: NOTES[newNoteIndex], octave: newOctave };
+        setCurrentStrings(newStrings);
+
+        // If playing this string, update the tone immediately
+        if (activeStringIndex === index && oscillatorRef.current && audioContextRef.current) {
+            oscillatorRef.current.frequency.setValueAtTime(getFrequency(NOTES[newNoteIndex], newOctave), audioContextRef.current.currentTime);
+        }
     };
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '500px', margin: '0 auto' }}>
+        <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', color: 'white' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ margin: 0 }}>Chromatic Tuner</h2>
+                <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={24} /> Reference Tuner</h2>
                 <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(50, 50, 194, 0.1), rgba(50, 50, 194, 0.05))',
-                padding: '3rem 2rem',
-                borderRadius: '20px',
-                border: `3px solid ${getTuningColor()}`,
-                marginBottom: '2rem',
-                textAlign: 'center',
-                transition: 'border-color 0.2s'
-            }}>
-                {note ? (
-                    <>
-                        <div style={{ fontSize: '5rem', fontWeight: 700, color: getTuningColor(), marginBottom: '0.5rem' }}>
-                            {note}
-                            <span style={{ fontSize: '2rem', opacity: 0.7 }}>{octave}</span>
-                        </div>
-                        <div style={{ fontSize: '1.5rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                            {frequency.toFixed(1)} Hz
-                        </div>
-                        <div style={{ fontSize: '1.2rem', color: getTuningColor(), fontWeight: 600 }}>
-                            {getTuningMessage()}
-                        </div>
-                    </>
-                ) : (
-                    <div style={{ fontSize: '1.5rem', color: 'var(--text-secondary)' }}>
-                        {isListening ? 'Listening...' : 'Click Start to begin'}
-                    </div>
-                )}
+            {/* Controls */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Instrument</label>
+                    <select
+                        value={instrument}
+                        onChange={(e) => {
+                            setInstrument(e.target.value);
+                            setTuningKey('standard'); // Reset to standard when changing instrument
+                        }}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'white' }}
+                    >
+                        {Object.entries(INSTRUMENTS).map(([key, config]) => (
+                            <option key={key} value={key}>{config.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Tuning</label>
+                    <select
+                        value={tuningKey}
+                        onChange={(e) => setTuningKey(e.target.value)}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'white' }}
+                    >
+                        {Object.entries(INSTRUMENTS[instrument].tunings).map(([key, config]) => (
+                            <option key={key} value={key}>{config.name}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
-            {/* Cents Meter */}
-            <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <span>-50¢</span>
-                    <span>0¢</span>
-                    <span>+50¢</span>
-                </div>
-                <div style={{
-                    height: '40px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '20px',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        left: '50%',
-                        top: 0,
-                        bottom: 0,
-                        width: '2px',
-                        background: 'rgba(255, 255, 255, 0.3)',
-                        transform: 'translateX(-50%)'
-                    }} />
-                    {note && (
-                        <div style={{
-                            position: 'absolute',
-                            left: `${50 + cents}%`,
-                            top: '50%',
-                            width: '20px',
-                            height: '30px',
-                            background: getTuningColor(),
-                            borderRadius: '10px',
-                            transform: 'translate(-50%, -50%)',
-                            transition: 'all 0.1s',
-                            boxShadow: `0 0 20px ${getTuningColor()}`
-                        }} />
-                    )}
-                </div>
-                {note && (
-                    <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '1rem', color: getTuningColor(), fontWeight: 600 }}>
-                        {cents > 0 ? '+' : ''}{cents}¢
+            {/* Strings */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                {currentStrings.map((str, index) => (
+                    <div
+                        key={index}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            width: '100%',
+                            justifyContent: 'space-between',
+                            background: activeStringIndex === index ? 'var(--primary-color-alpha)' : 'rgba(255,255,255,0.05)',
+                            padding: '1rem',
+                            borderRadius: '12px',
+                            border: activeStringIndex === index ? '1px solid var(--primary-color)' : '1px solid transparent',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        {/* Note Display & Play Button */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, cursor: 'pointer' }} onClick={() => playTone(str.note, str.octave, index)}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                background: activeStringIndex === index ? 'var(--primary-color)' : 'var(--bg-subtle)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                color: activeStringIndex === index ? 'white' : 'var(--text-primary)'
+                            }}>
+                                {str.note}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>{str.note}{str.octave}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{getFrequency(str.note, str.octave).toFixed(1)} Hz</div>
+                            </div>
+                        </div>
+
+                        {/* Tuning Controls */}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); adjustString(index, -1); }}
+                                style={{ padding: '0.5rem' }}
+                            >
+                                ♭
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); adjustString(index, 1); }}
+                                style={{ padding: '0.5rem' }}
+                            >
+                                ♯
+                            </Button>
+                        </div>
                     </div>
-                )}
+                ))}
             </div>
 
-            <Button
-                variant={isListening ? 'secondary' : 'primary'}
-                onClick={isListening ? stopListening : startListening}
-                style={{
-                    width: '100%',
-                    padding: '1.5rem',
-                    fontSize: '1.1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem'
-                }}
-            >
-                {isListening ? (
-                    <><MicOff size={24} /> Stop Listening</>
-                ) : (
-                    <><Mic size={24} /> Start Tuner</>
-                )}
-            </Button>
-
-            <div style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Make sure to allow microphone access when prompted
+            <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <p>Click a note to play reference tone.</p>
             </div>
         </div>
     );
