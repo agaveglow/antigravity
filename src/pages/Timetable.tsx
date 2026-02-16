@@ -9,8 +9,14 @@ const Timetable: React.FC = () => {
     const { user, role } = useUser();
     const { addSlot, updateSlot, deleteSlot, getSlotsByLevel } = useTimetable();
 
-    const [selectedLevel, setSelectedLevel] = useState<LevelType>(user?.level || 'Level 2');
-    const [selectedYear, setSelectedYear] = useState<YearType | undefined>(user?.year);
+    const getInitialState = () => {
+        if (user?.cohort === 'Level 3A') return { level: 'Level 3' as LevelType, year: 'Year 1' as YearType };
+        if (user?.cohort === 'Level 3B') return { level: 'Level 3' as LevelType, year: 'Year 2' as YearType };
+        return { level: 'Level 2' as LevelType, year: undefined };
+    };
+
+    const [selectedLevel, setSelectedLevel] = useState<LevelType>(getInitialState().level);
+    const [selectedYear, setSelectedYear] = useState<YearType | undefined>(getInitialState().year);
     const [isAddingSlot, setIsAddingSlot] = useState(false);
     const [editingSlot, setEditingSlot] = useState<TimetableSlot | null>(null);
     const [formData, setFormData] = useState({
@@ -23,7 +29,7 @@ const Timetable: React.FC = () => {
         color: '#FF9F0A' // Default orange color
     });
 
-    const isTeacher = role === 'teacher';
+    const isTeacher = role === 'teacher' || role === 'admin';
     const days: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
     const currentSlots = getSlotsByLevel(selectedLevel, selectedLevel === 'Level 3' ? selectedYear : undefined);

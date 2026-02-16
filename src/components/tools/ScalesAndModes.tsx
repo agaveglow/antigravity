@@ -34,7 +34,7 @@ const ScalesAndModes: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ margin: 0 }}>Scales & Modes</h2>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
@@ -48,15 +48,15 @@ const ScalesAndModes: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         style={{
                             width: '100%',
                             padding: '0.75rem',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            background: 'var(--bg-input)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '8px',
-                            color: 'white',
+                            color: 'var(--text-primary)',
                             fontSize: '1rem'
                         }}
                     >
                         {roots.map(root => (
-                            <option key={root} value={root} style={{ background: '#1a1a1a' }}>{root}</option>
+                            <option key={root} value={root}>{root}</option>
                         ))}
                     </select>
                 </div>
@@ -71,15 +71,15 @@ const ScalesAndModes: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         style={{
                             width: '100%',
                             padding: '0.75rem',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            background: 'var(--bg-input)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '8px',
-                            color: 'white',
+                            color: 'var(--text-primary)',
                             fontSize: '1rem'
                         }}
                     >
                         {Object.keys(scales).map(scale => (
-                            <option key={scale} value={scale} style={{ background: '#1a1a1a' }}>{scale}</option>
+                            <option key={scale} value={scale}>{scale}</option>
                         ))}
                     </select>
                 </div>
@@ -92,7 +92,7 @@ const ScalesAndModes: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 border: '2px solid rgba(200, 96, 245, 0.3)',
                 marginBottom: '2rem'
             }}>
-                <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--primary-color)' }}>
+                <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--color-primary)' }}>
                     {selectedRoot} {selectedScale}
                 </h3>
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>

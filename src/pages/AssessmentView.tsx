@@ -5,7 +5,10 @@ import Button from '../components/common/Button';
 import { useCurriculum } from '../context/CurriculumContext';
 import { ChevronLeft, FileText, Download, Music, Globe, CheckCircle2, Video } from 'lucide-react';
 import { type Grade } from '../types/ual';
-import { useSubmissions, type Submission } from '../context/SubmissionContext';
+import { useSubmissions } from '../context/SubmissionContext';
+import { useAchievements } from '../context/AchievementsContext';
+import { useUser } from '../context/UserContext';
+import { useStudents } from '../context/StudentsContext'; // Import Added
 import PageTransition from '../components/common/PageTransition';
 
 const AssessmentView: React.FC = () => {
@@ -14,20 +17,8 @@ const AssessmentView: React.FC = () => {
     const { submissions, updateSubmission } = useSubmissions();
     const { getProjectById } = useCurriculum();
 
-    // Find the submission (either real or mock)
-    const submission = submissions.find(s => s.id === submissionId) || (submissionId?.startsWith('m') ? {
-        id: submissionId,
-        studentName: submissionId === 'm1' ? 'Alice Walker' : 'Bob Smith',
-        taskTitle: 'Task 1.1: Performance',
-        submittedAt: new Date().toISOString(),
-        status: 'Pending Mark',
-        evidence: [{ id: 'e1', type: 'media_file', fileName: 'Performance_Rec.mp3' }] as any,
-        taskId: 't1',
-        projectId: 'p1',
-        studentId: submissionId,
-        studentLevel: '3',
-        studentYear: '1'
-    } as Submission : null);
+    // Find the submission
+    const submission = submissions.find(s => s.id === submissionId);
 
     const [selectedGrade, setSelectedGrade] = useState<Grade | null>(submission?.status === 'Graded' ? submission.grade as Grade : null);
     const [feedback, setFeedback] = useState(submission?.feedback || '');
@@ -41,13 +32,60 @@ const AssessmentView: React.FC = () => {
         ? ['Fail', 'Pass', 'Referred']
         : ['Fail', 'Pass', 'Merit', 'Distinction', 'Referred'];
 
-    const handleSave = () => {
+    const { awardAchievement, achievements } = useAchievements();
+
+    const { user } = useUser(); // Get current user (teacher)
+    const { getStudentById, updateStudent, awardRewards } = useStudents(); // Import useStudents
+
+    const handleSave = async () => {
         if (submissionId && !submissionId.startsWith('m')) {
-            updateSubmission(submissionId, {
+            // Update submission status
+            await updateSubmission(submissionId, {
                 status: 'Graded',
                 grade: selectedGrade || undefined,
-                feedback
+                feedback,
+                // Clear verification request
+                verificationRequested: false,
+                verificationRequestedAt: undefined,
+                // Set verification details
+                verifiedBy: user?.id,
+                verifiedAt: new Date().toISOString()
             });
+
+            // Calculate Rewards
+            let xpReward = 0;
+            let currencyReward = 0;
+
+            if (selectedGrade === 'Pass') {
+                xpReward = 100;
+                currencyReward = 50;
+            } else if (selectedGrade === 'Merit') {
+                xpReward = 200;
+                currencyReward = 100;
+            } else if (selectedGrade === 'Distinction') {
+                xpReward = 300;
+                currencyReward = 150;
+            }
+
+            // Update Student Profile with Rewards
+            if (xpReward > 0) {
+                try {
+                    console.log(`Awarding ${xpReward} XP and ${currencyReward} Currency to ${submission.studentId}`);
+                    await awardRewards(submission.studentId, xpReward, currencyReward);
+                    // Optional: could trigger a notification for the student here too
+                } catch (e) {
+                    console.error('Failed to award rewards:', e);
+                    alert('Grade saved, but failed to award XP/Currency. Please try again or contact admin.');
+                }
+            }
+
+            // Award 'Creative Spark' (Distinction)
+            if (selectedGrade === 'Distinction') {
+                const creativeSpark = achievements.find(a => a.title === 'Creative Spark' || a.id === '4');
+                if (creativeSpark) {
+                    awardAchievement(submission.studentId, creativeSpark.id);
+                }
+            }
         }
         navigate('/teacher/assessment');
     };
@@ -78,33 +116,41 @@ const AssessmentView: React.FC = () => {
                         <div style={{ flex: 1, padding: 'var(--space-6)', overflowY: 'auto', background: 'var(--bg-body)' }}>
                             <h4 style={{ marginBottom: 'var(--space-4)' }}>Evidence Artifacts</h4>
                             <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-                                {submission.evidence.map((ev: any) => (
-                                    <div key={ev.id} style={{
-                                        padding: 'var(--space-4)', background: 'var(--bg-card)',
-                                        borderRadius: '12px', border: '1px solid var(--border-color)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                                            <div style={{
-                                                width: '40px', height: '40px', borderRadius: '8px',
-                                                background: 'var(--color-brand-cyan)', color: 'white',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                {ev.type === 'video_file' ? <Video size={20} /> :
-                                                    ev.type === 'media_file' ? <Music size={20} /> :
-                                                        <FileText size={20} />}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>{ev.fileName || ev.url}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{ev.type.replace('_', ' ')}</div>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <Button variant="outline" size="sm" onClick={() => ev.url && window.open(ev.url, '_blank')}>View</Button>
-                                            <Button variant="ghost" size="sm"><Download size={16} /></Button>
-                                        </div>
+                                {(!submission.evidence || submission.evidence.length === 0) ? (
+                                    <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-input)', borderRadius: '12px' }}>
+                                        <CheckCircle2 size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                                        <p>No files uploaded. This task was manually verified.</p>
+                                        {submission.verifiedBy && <p style={{ fontSize: '0.8rem' }}>Verified by Teacher ID: {submission.verifiedBy}</p>}
                                     </div>
-                                ))}
+                                ) : (
+                                    submission.evidence.map((ev: any) => (
+                                        <div key={ev.id} style={{
+                                            padding: 'var(--space-4)', background: 'var(--bg-card)',
+                                            borderRadius: '12px', border: '1px solid var(--border-color)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                                                <div style={{
+                                                    width: '40px', height: '40px', borderRadius: '8px',
+                                                    background: 'var(--color-brand-cyan)', color: 'white',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    {ev.type === 'video_file' ? <Video size={20} /> :
+                                                        ev.type === 'media_file' ? <Music size={20} /> :
+                                                            <FileText size={20} />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 600 }}>{ev.fileName || ev.url}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{ev.type.replace('_', ' ')}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <Button variant="outline" size="sm" onClick={() => ev.url && window.open(ev.url, '_blank')}>View</Button>
+                                                <Button variant="ghost" size="sm"><Download size={16} /></Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
 
                             <div style={{ marginTop: 'var(--space-8)', padding: 'var(--space-12)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', textAlign: 'center', border: '2px dashed var(--border-color)' }}>

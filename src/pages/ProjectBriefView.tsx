@@ -10,16 +10,19 @@ import {
     Clock, PlayCircle
 } from 'lucide-react';
 
+import { useLanguage } from '../context/LanguageContext';
+
 const ProjectBriefView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { getProjectById } = useCurriculum();
     const { user } = useUser();
     const { getSubmissionByTask } = useSubmissions();
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const project = id ? getProjectById(id) : undefined;
 
-    if (!project) return <div>Project not found</div>;
+    if (!project) return <div>{t('project.notFound')}</div>;
 
     const getTaskStatus = (taskId: string) => {
         if (!user) return 'Not Started';
@@ -40,7 +43,7 @@ const ProjectBriefView: React.FC = () => {
     return (
         <div>
             <Button variant="ghost" onClick={() => navigate(-1)} style={{ marginBottom: 'var(--space-4)', paddingLeft: 0 }}>
-                <ChevronLeft size={20} /> Back to Dashboard
+                <ChevronLeft size={20} /> {t('project.back')}
             </Button>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-8)', alignItems: 'start' }}>
@@ -60,18 +63,18 @@ const ProjectBriefView: React.FC = () => {
                         </div>
                         <h1 style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>{project.title}</h1>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
-                            {project.level} - {project.year}
+                            {project.cohort}
                         </p>
 
                         <div style={{ marginTop: 'var(--space-8)' }}>
-                            <h3 style={{ marginBottom: 'var(--space-3)' }}>Project Scenario</h3>
+                            <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('project.scenario')}</h3>
                             <p style={{ lineHeight: 1.7, color: 'var(--text-primary)' }}>
                                 {project.scenario}
                             </p>
                         </div>
                     </Card>
 
-                    <h2 style={{ marginBottom: 'var(--space-6)' }}>Submission Tasks</h2>
+                    <h2 style={{ marginBottom: 'var(--space-6)' }}>{t('project.tasks')}</h2>
                     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
                         {project.tasks.map(task => (
                             <Card key={task.id} style={{
@@ -90,7 +93,7 @@ const ProjectBriefView: React.FC = () => {
                                                     {task.xpReward} XP
                                                 </span>
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                                                    Criteria: {task.criteriaReferences.join(', ')}
+                                                    {t('project.criteria')}: {task.criteriaReferences.join(', ')}
                                                 </span>
                                             </div>
                                         </div>
@@ -110,7 +113,7 @@ const ProjectBriefView: React.FC = () => {
                                             variant={getTaskStatus(task.id) === 'Graded' ? 'outline' : 'primary'}
                                             onClick={() => navigate(`/student/task/${task.id}`)}
                                         >
-                                            {getTaskStatus(task.id) === 'Not Started' ? 'Start' : 'View'}
+                                            {getTaskStatus(task.id) === 'Not Started' ? t('project.start') : t('project.view')}
                                         </Button>
                                     </div>
                                 </div>
@@ -122,7 +125,7 @@ const ProjectBriefView: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                     <Card elevated>
                         <h3 style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <FileText size={20} color="var(--color-brand-purple)" /> Learning Outcomes
+                            <FileText size={20} color="var(--color-brand-purple)" /> {t('project.outcomes')}
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                             {project.learningOutcomes.map(lo => (
@@ -135,7 +138,7 @@ const ProjectBriefView: React.FC = () => {
                     </Card>
 
                     <Card elevated style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                        <h3 style={{ marginBottom: 'var(--space-4)' }}>Essential Resources</h3>
+                        <h3 style={{ marginBottom: 'var(--space-4)' }}>{t('project.resources')}</h3>
                         <ul style={{ padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                             {[
                                 'UAL Level 3 Specification',

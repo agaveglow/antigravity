@@ -100,14 +100,14 @@ const Metronome: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '500px', margin: '0 auto', color: 'white' }}>
+        <div style={{ padding: '2rem', maxWidth: '500px', margin: '0 auto', color: 'var(--text-primary)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ margin: 0 }}>Metronome</h2>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <div style={{ fontSize: '4rem', fontWeight: 700, color: 'var(--primary-color)', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '4rem', fontWeight: 700, color: 'var(--color-primary)', marginBottom: '0.5rem' }}>
                     {bpm}
                 </div>
                 <div style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>BPM</div>
@@ -191,7 +191,7 @@ const Metronome: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             width: '20px',
                             height: '20px',
                             borderRadius: '50%',
-                            background: isPlaying && currentBeat === i ? 'var(--primary-color)' : 'rgba(255, 255, 255, 0.2)',
+                            background: isPlaying && currentBeat === i ? 'var(--color-primary)' : 'var(--bg-input)',
                             transition: 'all 0.1s'
                         }}
                     />

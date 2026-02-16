@@ -4,17 +4,20 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { Package, Sparkles, ShieldCheck, Palette, Smartphone, Check } from 'lucide-react';
 
+import { useLanguage } from '../context/LanguageContext';
+
 const Inventory: React.FC = () => {
     const { user } = useUser();
+
     const [equippedItems, setEquippedItems] = useState<string[]>([]);
-    const [activeBoosts, setActiveBoosts] = useState<string[]>([]);
+    const { t } = useLanguage();
 
     // Same items as in DowdBucksStore - MUST match exactly
     const allItems = [
-        { id: 'dark-mode-pro', name: 'Dark Mode Pro', price: 200, description: 'Exclusive high-contrast theme variant', icon: <Smartphone size={32} color="#00A8C6" />, color: '#00A8C6' },
-        { id: 'gold-border', name: 'Gold Avatar Border', price: 500, description: 'Shine in the leaderboards', icon: <ShieldCheck size={32} color="gold" />, color: 'gold' },
-        { id: 'custom-accent', name: 'Custom Accent Pack', price: 300, description: 'Change UI accent to your choice', icon: <Palette size={32} color="#C860F5" />, color: '#C860F5' },
-        { id: 'badge-flare', name: 'Badge Flare', price: 150, description: 'Add sparkle to your status badges', icon: <Sparkles size={32} color="#FF9F0A" />, color: '#FF9F0A' },
+        { id: 'dark-mode-pro', name: t('item.darkMode'), price: 200, description: t('item.darkModeDesc'), icon: <Smartphone size={32} color="#00A8C6" />, color: '#00A8C6' },
+        { id: 'gold-border', name: t('item.goldBorder'), price: 500, description: t('item.goldBorderDesc'), icon: <ShieldCheck size={32} color="gold" />, color: 'gold' },
+        { id: 'custom-accent', name: t('item.customAccent'), price: 300, description: t('item.customAccentDesc'), icon: <Palette size={32} color="#C860F5" />, color: '#C860F5' },
+        { id: 'badge-flare', name: t('item.badgeFlare'), price: 150, description: t('item.badgeFlareDesc'), icon: <Sparkles size={32} color="#FF9F0A" />, color: '#FF9F0A' },
     ];
 
     const ownedItems = allItems.filter(item => user?.inventory.includes(item.id));
@@ -27,19 +30,13 @@ const Inventory: React.FC = () => {
         }
     };
 
-    const handleActivate = (itemId: string) => {
-        if (!activeBoosts.includes(itemId)) {
-            setActiveBoosts(prev => [...prev, itemId]);
-            // Show activation message
-            alert('Boost activated! You now have 2x XP for 7 days!');
-        }
-    };
+
 
     const getItemAction = (itemId: string) => {
         // Dark Mode Pro and Custom Accent can be equipped
         if (itemId === 'dark-mode-pro' || itemId === 'custom-accent') {
             return {
-                label: equippedItems.includes(itemId) ? 'Unequip' : 'Equip',
+                label: equippedItems.includes(itemId) ? t('inventory.unequip') : t('inventory.equip'),
                 action: () => handleEquip(itemId),
                 variant: equippedItems.includes(itemId) ? 'outline' : 'primary'
             };
@@ -47,7 +44,7 @@ const Inventory: React.FC = () => {
         // Badge Flare and Gold Border are always active once owned
         if (itemId === 'badge-flare' || itemId === 'gold-border') {
             return {
-                label: 'Active',
+                label: t('inventory.active'),
                 action: () => { },
                 variant: 'outline',
                 disabled: true
@@ -61,19 +58,19 @@ const Inventory: React.FC = () => {
             <div style={{ marginBottom: 'var(--space-8)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                     <Package size={32} className="text-primary" />
-                    <h1 style={{ margin: 0 }}>My Inventory</h1>
+                    <h1 style={{ margin: 0 }}>{t('inventory.title')}</h1>
                 </div>
                 <p style={{ color: 'var(--text-secondary)' }}>
-                    Your purchased items and rewards
+                    {t('inventory.subtitle')}
                 </p>
             </div>
 
             {ownedItems.length === 0 ? (
                 <Card elevated style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
                     <Package size={64} style={{ margin: '0 auto var(--space-6)', opacity: 0.3 }} />
-                    <h3 style={{ marginBottom: 'var(--space-3)' }}>No items yet</h3>
+                    <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('inventory.noItems')}</h3>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-6)' }}>
-                        Visit the DowdBucks Store to purchase exclusive items!
+                        {t('inventory.visitStore')}
                     </p>
                 </Card>
             ) : (
@@ -121,7 +118,7 @@ const Inventory: React.FC = () => {
                                         fontSize: '0.85rem',
                                         fontWeight: 600
                                     }}>
-                                        Active
+                                        {t('inventory.active')}
                                     </div>
                                 );
                             })()}
@@ -131,25 +128,25 @@ const Inventory: React.FC = () => {
             )}
 
             <Card elevated style={{ marginTop: 'var(--space-8)', background: 'linear-gradient(135deg, rgba(255, 159, 10, 0.1), rgba(255, 159, 10, 0.05))', border: '1px solid var(--primary-color)' }}>
-                <h3 style={{ marginBottom: 'var(--space-3)' }}>Collection Stats</h3>
+                <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('inventory.stats')}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-6)' }}>
                     <div>
                         <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
                             {ownedItems.length}
                         </div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Items Owned</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('inventory.itemsOwned')}</div>
                     </div>
                     <div>
                         <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
                             {Math.round((ownedItems.length / allItems.length) * 100)}%
                         </div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Collection Complete</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('inventory.collectionComplete')}</div>
                     </div>
                     <div>
                         <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
                             Ⓓ{user?.balance || 0}
                         </div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Current Balance</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('inventory.balance')}</div>
                     </div>
                 </div>
             </Card>

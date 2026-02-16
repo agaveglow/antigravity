@@ -1,33 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuizzes } from '../context/QuizContext';
-import { useUser } from '../context/UserContext';
+import { useAchievements } from '../context/AchievementsContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { Lock, Star, CheckCircle2, Play, Flag, Menu, X, ArrowLeft, BookOpen, FileText } from 'lucide-react';
-import type { Quiz, Course, Lesson } from '../types/ual';
+import { Lock, Star, CheckCircle2, Play, Flag, X, ArrowLeft, BookOpen, Image } from 'lucide-react';
+import type { Quiz, Lesson, Walkthrough } from '../types/ual';
 import PageTransition from '../components/common/PageTransition';
 import Markdown from 'react-markdown';
 import { audioService } from '../utils/audio';
+import WalkthroughViewer from '../components/curriculum/WalkthroughViewer';
+
+import { useLanguage } from '../context/LanguageContext';
+import { useUser } from '../context/UserContext';
 
 const StudentLearning: React.FC = () => {
-    const { quizzes, completeQuiz, completedQuizzes, courses, lessons, completeLesson, completedLessons } = useQuizzes();
+    const {
+        quizzes, completeQuiz, completedQuizzes,
+        courses,
+        lessons, completeLesson, completedLessons,
+        walkthroughs, completeWalkthrough, completedWalkthroughs
+    } = useQuizzes();
+    const { t } = useLanguage();
+    const { awardAchievement, achievements } = useAchievements();
     const { user } = useUser();
 
     // UI State
     const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
     const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
     const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
+    const [activeWalkthrough, setActiveWalkthrough] = useState<Walkthrough | null>(null);
 
     // Quiz Execution State
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+    const [score, setScore] = useState(0); // Track correct answers
     const [isAnswered, setIsAnswered] = useState(false);
-    const [isCorrect, setIsCorrect] = useState(false);
     const [quizCompleted, setQuizCompleted] = useState(false);
-    const [showConfetti, setShowConfetti] = useState(false);
-
-    // Sidebar State
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // --- Helpers ---
 
@@ -35,13 +43,17 @@ const StudentLearning: React.FC = () => {
         setActiveQuiz(quiz);
         setCurrentQuestionIndex(0);
         setSelectedOptionId(null);
+        setScore(0);
         setIsAnswered(false);
         setQuizCompleted(false);
-        setShowConfetti(false);
     };
 
     const handleStartLesson = (lesson: Lesson) => {
         setActiveLesson(lesson);
+    };
+
+    const handleStartWalkthrough = (walkthrough: Walkthrough) => {
+        setActiveWalkthrough(walkthrough);
     };
 
     const handleAnswer = (optionId: string) => {
@@ -51,9 +63,9 @@ const StudentLearning: React.FC = () => {
 
         const currentQ = activeQuiz.questions[currentQuestionIndex];
         const correct = currentQ.correctOptionId === optionId;
-        setIsCorrect(correct);
 
         if (correct) {
+            setScore(prev => prev + 1);
             audioService.playSuccess();
         } else {
             audioService.playError();
@@ -66,17 +78,27 @@ const StudentLearning: React.FC = () => {
             setCurrentQuestionIndex(prev => prev + 1);
             setSelectedOptionId(null);
             setIsAnswered(false);
-            setIsCorrect(false);
         } else {
             finishQuiz();
         }
     };
 
     const finishQuiz = () => {
-        if (!activeQuiz) return;
+        if (!activeQuiz || !user) return;
         setQuizCompleted(true);
-        setShowConfetti(true);
         completeQuiz(activeQuiz.id);
+
+        // Calculate Score
+        const totalQuestions = activeQuiz.questions.length;
+        const percentage = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
+
+        if (percentage === 100) {
+            const quizMaster = achievements.find(a => a.title === 'Quiz Master' || a.id === '2');
+            if (quizMaster) {
+                awardAchievement(user.id, quizMaster.id);
+            }
+        }
+
         audioService.playLevelUp();
     };
 
@@ -85,6 +107,13 @@ const StudentLearning: React.FC = () => {
         completeLesson(activeLesson.id);
         setActiveLesson(null);
         audioService.playSuccess(); // Small success sound
+    };
+
+    const handleFinishWalkthrough = () => {
+        if (!activeWalkthrough) return;
+        completeWalkthrough(activeWalkthrough.id);
+        setActiveWalkthrough(null);
+        audioService.playSuccess();
     };
 
     // --- Render Views ---
@@ -221,14 +250,29 @@ const StudentLearning: React.FC = () => {
         );
     }
 
-    // 3. Course Roadmap View
+    // 3. Active Walkthrough View
+    if (activeWalkthrough) {
+        return (
+            <PageTransition>
+                <WalkthroughViewer
+                    walkthrough={activeWalkthrough}
+                    onComplete={handleFinishWalkthrough}
+                    onBack={() => setActiveWalkthrough(null)}
+                />
+            </PageTransition>
+        );
+    }
+
+    // 4. Course Roadmap View
     if (activeCourseId) {
         const course = courses.find(c => c.id === activeCourseId);
 
         // Combine and Sort Items
         const courseQuizzes = quizzes.filter(q => q.courseId === activeCourseId).map(q => ({ ...q, itemType: 'quiz' as const }));
         const courseLessons = lessons?.filter(l => l.courseId === activeCourseId).map(l => ({ ...l, itemType: 'lesson' as const })) || [];
-        const roadmapItems = [...courseQuizzes, ...courseLessons].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const courseWalkthroughs = walkthroughs?.filter(w => w.courseId === activeCourseId).map(w => ({ ...w, itemType: 'walkthrough' as const })) || [];
+
+        const roadmapItems = [...courseQuizzes, ...courseLessons, ...courseWalkthroughs].sort((a, b) => (a.order || 0) - (b.order || 0));
 
         return (
             <PageTransition>
@@ -265,7 +309,6 @@ const StudentLearning: React.FC = () => {
                             <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
                                 <path
                                     d={roadmapItems.map((_, i) => {
-                                        const x = i % 2 === 0 ? '50%' : (i % 4 === 1 ? '80%' : '20%'); // Zig-zag center, right, center, left? No, let's do center vertical or zig zag
                                         // Simple Zig Zag: Even = Right (70%), Odd = Left (30%)
                                         const xPos = i % 2 === 0 ? 30 : 70;
                                         const yPos = (i * 120) + 60; // Spacing
@@ -286,10 +329,16 @@ const StudentLearning: React.FC = () => {
                                 // Progression Logic
                                 // An item is locked if the PREVIOUS item is NOT completed.
                                 const prevItem = roadmapItems[index - 1];
-                                const isPrevCompleted = !prevItem || (prevItem.itemType === 'quiz' ? completedQuizzes.includes(prevItem.id) : completedLessons.includes(prevItem.id));
+                                const isPrevCompleted = !prevItem || (
+                                    prevItem.itemType === 'quiz' ? completedQuizzes.includes(prevItem.id) :
+                                        (prevItem.itemType === 'lesson' ? completedLessons.includes(prevItem.id) :
+                                            completedWalkthroughs.includes(prevItem.id))
+                                );
 
                                 const isLocked = index > 0 && !isPrevCompleted;
-                                const isCompleted = item.itemType === 'quiz' ? completedQuizzes.includes(item.id) : completedLessons.includes(item.id);
+                                const isCompleted = item.itemType === 'quiz' ? completedQuizzes.includes(item.id) :
+                                    (item.itemType === 'lesson' ? completedLessons.includes(item.id) :
+                                        completedWalkthroughs.includes(item.id));
                                 const isCurrent = !isLocked && !isCompleted;
 
                                 // Layout: Zig Zag
@@ -298,7 +347,12 @@ const StudentLearning: React.FC = () => {
                                 return (
                                     <div
                                         key={item.id}
-                                        onClick={() => !isLocked && (item.itemType === 'quiz' ? handleStartQuiz(item as Quiz) : handleStartLesson(item as Lesson))}
+                                        onClick={() => {
+                                            if (isLocked) return;
+                                            if (item.itemType === 'quiz') handleStartQuiz(item as Quiz);
+                                            else if (item.itemType === 'lesson') handleStartLesson(item as Lesson);
+                                            else handleStartWalkthrough(item as Walkthrough);
+                                        }}
                                         style={{
                                             position: 'relative',
                                             margin: '0 auto 60px', // Vertical spacing
@@ -336,8 +390,10 @@ const StudentLearning: React.FC = () => {
                                                 <>
                                                     {item.itemType === 'quiz' ? (
                                                         <Star size={32} color={course?.color || 'var(--color-brand-gold)'} fill={isCurrent ? (course?.color || 'var(--color-brand-gold)') : 'none'} />
-                                                    ) : (
+                                                    ) : item.itemType === 'lesson' ? (
                                                         <BookOpen size={32} color={course?.color || 'var(--color-brand-purple)'} fill={isCurrent ? (course?.color || 'var(--color-brand-purple)') : 'none'} />
+                                                    ) : (
+                                                        <Image size={32} color={course?.color || '#43a047'} fill={isCurrent ? (course?.color || '#43a047') : 'none'} />
                                                     )}
                                                 </>
                                             )}
@@ -390,17 +446,19 @@ const StudentLearning: React.FC = () => {
     return (
         <PageTransition>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                <h1 style={{ marginBottom: '2rem' }}>My Courses</h1>
+                <h1 style={{ marginBottom: '2rem' }}>{t('learning.title')}</h1>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
                     {courses.map(course => {
                         // Calc progress
                         const cQuizzes = quizzes.filter(q => q.courseId === course.id);
                         const cLessons = lessons.filter(l => l.courseId === course.id);
-                        const totalItems = cQuizzes.length + cLessons.length;
+                        const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
+                        const totalItems = cQuizzes.length + cLessons.length + cWalkthroughs.length;
 
                         const completedQ = cQuizzes.filter(q => completedQuizzes.includes(q.id)).length;
                         const completedL = cLessons.filter(l => completedLessons.includes(l.id)).length;
-                        const totalCompleted = completedQ + completedL;
+                        const completedW = cWalkthroughs.filter(w => completedWalkthroughs.includes(w.id)).length;
+                        const totalCompleted = completedQ + completedL + completedW;
 
                         const percent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
 

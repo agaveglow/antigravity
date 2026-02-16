@@ -37,7 +37,7 @@ import Button from '../components/common/Button';
 
 const Calendar: React.FC = () => {
     const { role } = useUser();
-    const { projects, events, addEvent, updateEvent, deleteEvent } = useCurriculum();
+    const { addEvent, updateEvent, deleteEvent } = useCurriculum();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
@@ -56,47 +56,16 @@ const Calendar: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const { allEvents: centralizedEvents } = useCurriculum();
+
     // Derive Events (Combine Context events with dynamic Project/Task deadlines)
     const allEvents = useMemo(() => {
-        const derived: CalendarEvent[] = [...events];
-
-        // Add Project Deadlines
-        projects.forEach(project => {
-            if (project.deadline) {
-                derived.push({
-                    id: `proj-${project.id}`,
-                    title: `Deadline: ${project.title}`,
-                    startDate: project.deadline,
-                    category: 'Project',
-                    allDay: true,
-                    isLocked: true,
-                    relatedId: project.id
-                });
-            }
-
-            // Add Task Deadlines
-            project.tasks.forEach(task => {
-                if (task.deadline) {
-                    derived.push({
-                        id: `task-${task.id}`,
-                        title: `Task Due: ${task.title}`,
-                        startDate: task.deadline,
-                        category: 'Task',
-                        allDay: false,
-                        isLocked: true,
-                        relatedId: task.id,
-                        description: `Part of ${project.title}`
-                    });
-                }
-            });
-        });
-
-        return derived.filter(e => activeFilters.includes(e.category));
-    }, [projects, events, activeFilters]);
+        return centralizedEvents.filter(e => activeFilters.includes(e.category));
+    }, [centralizedEvents, activeFilters]);
 
     const handleAddEvent = (eventData: Partial<CalendarEvent>) => {
         const newEvent: CalendarEvent = {
-            id: Date.now().toString(),
+            id: crypto.randomUUID(),
             title: eventData.title || 'New Event',
             startDate: eventData.startDate || format(selectedDate, 'yyyy-MM-dd'),
             category: eventData.category || 'Personal',

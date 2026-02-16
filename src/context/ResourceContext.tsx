@@ -55,6 +55,7 @@ interface ResourceContextType {
 
     addEquipment: (item: Omit<Equipment, 'id'>) => void;
     updateEquipment: (id: string, updates: Partial<Equipment>) => void;
+    deleteEquipment: (id: string) => void;
 
     bookStudio: (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => void;
     updateBookingStatus: (id: string, status: BookingStatus) => void;
@@ -83,23 +84,43 @@ const INITIAL_EQUIPMENT: Equipment[] = [
 export const ResourceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // In a real app, these would come from an API/Database
     const [studios, setStudios] = useState<Studio[]>(() => {
-        const saved = localStorage.getItem('erc-studios');
-        return saved ? JSON.parse(saved) : INITIAL_STUDIOS;
+        try {
+            const saved = localStorage.getItem('erc-studios');
+            return saved ? JSON.parse(saved) : INITIAL_STUDIOS;
+        } catch (e) {
+            console.error("Failed to parse studios:", e);
+            return INITIAL_STUDIOS;
+        }
     });
 
     const [equipment, setEquipment] = useState<Equipment[]>(() => {
-        const saved = localStorage.getItem('erc-equipment');
-        return saved ? JSON.parse(saved) : INITIAL_EQUIPMENT;
+        try {
+            const saved = localStorage.getItem('erc-equipment');
+            return saved ? JSON.parse(saved) : INITIAL_EQUIPMENT;
+        } catch (e) {
+            console.error("Failed to parse equipment:", e);
+            return INITIAL_EQUIPMENT;
+        }
     });
 
     const [bookings, setBookings] = useState<StudioBooking[]>(() => {
-        const saved = localStorage.getItem('erc-bookings');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('erc-bookings');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            console.error("Failed to parse bookings:", e);
+            return [];
+        }
     });
 
     const [loans, setLoans] = useState<EquipmentLoan[]>(() => {
-        const saved = localStorage.getItem('erc-loans');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('erc-loans');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            console.error("Failed to parse loans:", e);
+            return [];
+        }
     });
 
     // Persistence
@@ -130,6 +151,10 @@ export const ResourceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const updateEquipment = (id: string, updates: Partial<Equipment>) => {
         setEquipment(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    };
+
+    const deleteEquipment = (id: string) => {
+        setEquipment(prev => prev.filter(e => e.id !== id));
     };
 
     const bookStudio = (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => {
@@ -209,7 +234,7 @@ export const ResourceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         <ResourceContext.Provider value={{
             studios, equipment, bookings, loans,
             addStudio, updateStudio, deleteStudio,
-            addEquipment, updateEquipment,
+            addEquipment, updateEquipment, deleteEquipment,
             bookStudio, updateBookingStatus,
             requestLoan, updateLoanStatus
         }}>

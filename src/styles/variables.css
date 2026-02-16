@@ -84,6 +84,7 @@ body.theme-dark {
   --bg-surface-elevated: rgba(44, 44, 46, 0.9);
   --bg-sidebar: rgba(0, 0, 0, 0.8);
   --bg-input: #2C2C2E;
+  --bg-subtle: rgba(0, 0, 0, 0.2);
 
   --text-primary: #FFFFFF;
   --text-secondary: #D1D1D6;
@@ -112,4 +113,50 @@ body.theme-dark {
   --text-tertiary: #ffffff;
 
   --border-color: #ffffff;
+}
+
+/* Accessibility: Protanopia (Red-Blind) */
+.theme-protanopia {
+  --color-success: #0077c8;
+  /* Blue instead of Green */
+  --color-warning: #ffb000;
+  /* Distinct Yellow */
+  --color-error: #999999;
+  /* Grey/Blueish instead of Red? Or maybe a distinct Pattern? */
+  /* Better Protanopia Palette: Blue (Success), Yellow (Warning), Dark Grey/Black (Error)? */
+  /* Let's use specific color-blind safe palette */
+  --color-success: #2e6fdf;
+  --color-warning: #e1be6a;
+  --color-error: #40b0a6;
+  /* Teal? No, need error. */
+  /* IBM Design Palette */
+  --color-error: #dc267f;
+  /* Magenta */
+  --color-warning: #fe6100;
+  /* Orange */
+  --color-success: #648fff;
+  /* Blue */
+}
+
+/* Accessibility: Deuteranopia (Green-Blind) */
+.theme-deuteranopia {
+  /* Similar to Protanopia, Red/Green confusion */
+  --color-error: #dc267f;
+  /* Magenta */
+  --color-warning: #fe6100;
+  /* Orange */
+  --color-success: #648fff;
+  /* Blue */
+}
+
+/* Accessibility: Tritanopia (Blue-Blind) */
+.theme-tritanopia {
+  --color-success: #009e73;
+  /* Teal/Green */
+  --color-warning: #f0e442;
+  /* Light Yellow */
+  --color-error: #d55e00;
+  /* Vermillion */
+  --color-info: #cc79a7;
+  /* Reddish Purple */
 }

@@ -1,5 +1,4 @@
-export type UALLevel = 'Level 2' | 'Level 3';
-export type UALYear = 'Year 1' | 'Year 2'; // Only relevant for Level 3
+export type UALCohort = 'Level 2' | 'Level 3A' | 'Level 3B';
 
 export type Grade = 'Pass' | 'Merit' | 'Distinction' | 'Fail' | 'Referred' | 'Pending';
 
@@ -24,6 +23,7 @@ export interface Task {
   deadline?: string; // ISO Date
   status: 'Not Started' | 'In Progress' | 'Submitted' | 'Graded';
   xpReward: number;
+  dowdBucksReward?: number;
 }
 
 export interface ProjectBrief {
@@ -31,8 +31,7 @@ export interface ProjectBrief {
   projectNumber?: string;
   title: string;
   unit: string; // e.g., "Unit 1: Introduction to Music Performance"
-  level: UALLevel;
-  year?: UALYear;
+  cohort: UALCohort;
   introduction: string;
   scenario: string;
   tasks: Task[];
@@ -41,6 +40,8 @@ export interface ProjectBrief {
   deadline?: string; // ISO Date
   published: boolean;
   gradingScheme?: 'Pass/Fail' | 'Distinction';
+  xpReward?: number;
+  dowdBucksReward?: number;
 }
 
 export interface StudentProgress {
@@ -111,7 +112,7 @@ export interface Quiz {
 
 export interface Lesson {
   id: string;
-  courseId: string;
+  courseId?: string;
   title: string;
   description: string; // Short description
   content: string; // Markdown or HTML content
@@ -121,4 +122,24 @@ export interface Lesson {
   createdAt: string;
 }
 
-export type RoadmapItem = (Quiz & { type: 'quiz' }) | Lesson;
+export type RoadmapItem = (Quiz & { type: 'quiz' }) | Lesson | Walkthrough;
+
+export interface WalkthroughStep {
+  id: string;
+  title: string;
+  content: string; // Markdown text
+  mediaUrl?: string; // Image or Video URL
+  mediaType?: 'image' | 'video';
+}
+
+export interface Walkthrough {
+  id: string;
+  courseId?: string;
+  title: string;
+  description: string;
+  steps: WalkthroughStep[];
+  order: number;
+  type: 'walkthrough';
+  xpReward: number;
+  createdAt: string;
+}

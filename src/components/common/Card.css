@@ -1,9 +1,11 @@
 .card {
     background-color: var(--bg-surface);
+    color: var(--text-primary);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: var(--border-radius-lg);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-primary);
+    box-shadow: 0 0 15px var(--color-primary);
     padding: var(--space-6);
     /* Increased internal padding */
     transition: all 0.3s ease;

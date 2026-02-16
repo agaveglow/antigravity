@@ -246,10 +246,10 @@ const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', color: 'white' }}>
+        <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', color: 'var(--text-primary)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={24} /> Reference Tuner</h2>
-                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
             {/* Controls */}
@@ -262,7 +262,7 @@ const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             setInstrument(e.target.value);
                             setTuningKey('standard'); // Reset to standard when changing instrument
                         }}
-                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'var(--text-primary)' }}
                     >
                         {Object.entries(INSTRUMENTS).map(([key, config]) => (
                             <option key={key} value={key}>{config.name}</option>
@@ -274,7 +274,7 @@ const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <select
                         value={tuningKey}
                         onChange={(e) => setTuningKey(e.target.value)}
-                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: 'none', color: 'var(--text-primary)' }}
                     >
                         {Object.entries(INSTRUMENTS[instrument].tunings).map(([key, config]) => (
                             <option key={key} value={key}>{config.name}</option>
@@ -293,10 +293,10 @@ const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             alignItems: 'center',
                             width: '100%',
                             justifyContent: 'space-between',
-                            background: activeStringIndex === index ? 'var(--primary-color-alpha)' : 'rgba(255,255,255,0.05)',
+                            background: activeStringIndex === index ? 'var(--color-primary-alpha)' : 'var(--bg-input)',
                             padding: '1rem',
                             borderRadius: '12px',
-                            border: activeStringIndex === index ? '1px solid var(--primary-color)' : '1px solid transparent',
+                            border: activeStringIndex === index ? '1px solid var(--color-primary)' : '1px solid transparent',
                             transition: 'all 0.2s'
                         }}
                     >
@@ -306,7 +306,7 @@ const Tuner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                 width: '40px',
                                 height: '40px',
                                 borderRadius: '50%',
-                                background: activeStringIndex === index ? 'var(--primary-color)' : 'var(--bg-subtle)',
+                                background: activeStringIndex === index ? 'var(--color-primary)' : 'var(--bg-subtle)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',

@@ -1,115 +1,165 @@
-import React from 'react';
-import { format, startOfWeek, addDays, isToday, isSameDay, parseISO } from 'date-fns';
+import React, { useMemo } from 'react';
+import { format, addDays, parseISO, isAfter, startOfDay } from 'date-fns';
 import { useCurriculum } from '../context/CurriculumContext';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronRight, Clock } from 'lucide-react';
 import Card from './common/Card';
-import { type CalendarEvent } from '../types/ual';
+
 
 const WeeklyCalendarWidget: React.FC = () => {
-    const { events } = useCurriculum();
+    const { allEvents } = useCurriculum();
     const navigate = useNavigate();
     const today = new Date();
-    const weekStart = startOfWeek(today);
-    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    // Get upcoming events (occurring today or later)
+    const upcomingEvents = useMemo(() => {
+        if (!allEvents) return [];
+        return allEvents
+            .filter(e => {
+                try {
+                    if (!e.startDate) return false;
+                    const date = parseISO(e.startDate);
+                    if (isNaN(date.getTime())) return false; // Handle Invalid Date
+                    return isAfter(date, startOfDay(addDays(today, -1)));
+                } catch (err) {
+                    console.error('WeeklyCalendarWidget: Filter error', err, e);
+                    return false;
+                }
+            })
+            .slice(0, 4); // Show top 4
+    }, [allEvents]);
 
     const getCategoryColor = (category: string) => {
         switch (category) {
-            case 'Project': return 'linear-gradient(135deg, #FF6B6B, #EE5253)';
-            case 'Task': return 'linear-gradient(135deg, #4834D4, #686DE0)';
-            case 'School': return 'linear-gradient(135deg, #F093FB, #F5576C)';
-            case 'Personal': return 'linear-gradient(135deg, #22A6B3, #7ED6DF)';
-            case 'External': return 'linear-gradient(135deg, #6AB04C, #BADC58)';
-            default: return 'var(--primary-color)';
+            case 'Project': return { bg: '#FF6B6B', text: 'white' };
+            case 'Task': return { bg: '#4834D4', text: 'white' };
+            case 'School': return { bg: '#F093FB', text: 'white' }; // Pinkish
+            case 'Personal': return { bg: '#22A6B3', text: 'white' };
+            case 'External': return { bg: '#6AB04C', text: 'white' };
+            default: return { bg: 'var(--color-primary)', text: 'white' };
         }
     };
 
     return (
-        <Card elevated>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <Card elevated style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{
+                padding: '1.5rem',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'var(--bg-subtle)'
+            }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Calendar size={24} className="text-primary" />
-                    <h3 style={{ margin: 0 }}>This Week</h3>
+                    <div style={{
+                        padding: '8px',
+                        background: 'rgba(255, 159, 10, 0.1)',
+                        borderRadius: '8px',
+                        color: 'var(--color-brand-orange)'
+                    }}>
+                        <CalendarIcon size={20} />
+                    </div>
+                    <h3 style={{ margin: 0 }}>Schedule</h3>
                 </div>
                 <button
                     onClick={() => navigate('/calendar')}
                     style={{
                         background: 'transparent',
                         border: 'none',
-                        color: 'var(--primary-color)',
+                        color: 'var(--color-primary)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
-                        fontSize: '0.9rem',
+                        fontSize: '0.85rem',
                         fontWeight: 600,
-                        padding: '4px 8px',
-                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
                         transition: 'all 0.2s'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 159, 10, 0.1)'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                    View Full Calendar <ChevronRight size={16} />
+                    Full Calendar <ChevronRight size={14} />
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
-                {weekDays.map((day, i) => {
-                    const dayEvents = (events || []).filter((e: CalendarEvent) => isSameDay(parseISO(e.startDate), day));
-                    const isCurrentDay = isToday(day);
-
-                    return (
-                        <div
-                            key={i}
-                            style={{
-                                background: isCurrentDay ? 'linear-gradient(135deg, rgba(255, 159, 10, 0.15), rgba(255, 159, 10, 0.05))' : 'rgba(255, 255, 255, 0.02)',
-                                padding: '0.75rem 0.5rem',
-                                borderRadius: '12px',
-                                border: isCurrentDay ? '2px solid var(--primary-color)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                minHeight: '120px',
+            <div style={{ padding: '0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {upcomingEvents.length > 0 ? (
+                        upcomingEvents.map((event, index) => (
+                            <div key={event.id} style={{
                                 display: 'flex',
-                                flexDirection: 'column'
-                            }}
-                        >
-                            <div style={{ textAlign: 'center', marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>
-                                    {format(day, 'EEE')}
+                                gap: '12px',
+                                alignItems: 'center',
+                                padding: '12px 16px',
+                                borderBottom: index < upcomingEvents.length - 1 ? '1px solid var(--border-color)' : 'none',
+                                background: 'var(--bg-surface)',
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '4px 8px',
+                                    background: 'var(--bg-input)',
+                                    borderRadius: '8px',
+                                    minWidth: '45px'
+                                }}>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
+                                        {(() => {
+                                            try {
+                                                const date = parseISO(event.startDate);
+                                                return isNaN(date.getTime()) ? '???' : format(date, 'MMM');
+                                            } catch { return '???'; }
+                                        })()}
+                                    </span>
+                                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        {(() => {
+                                            try {
+                                                const date = parseISO(event.startDate);
+                                                return isNaN(date.getTime()) ? '??' : format(date, 'd');
+                                            } catch { return '??'; }
+                                        })()}
+                                    </span>
                                 </div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: isCurrentDay ? 'var(--primary-color)' : 'white', marginTop: '2px' }}>
-                                    {format(day, 'd')}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflow: 'hidden' }}>
-                                {dayEvents.slice(0, 3).map((event: CalendarEvent) => (
-                                    <div
-                                        key={event.id}
-                                        style={{
-                                            padding: '4px 6px',
-                                            borderRadius: '4px',
-                                            background: getCategoryColor(event.category),
-                                            color: 'white',
-                                            fontSize: '0.7rem',
-                                            fontWeight: 600,
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
-                                        }}
-                                        title={event.title}
-                                    >
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px', color: 'var(--text-primary)' }}>
                                         {event.title}
                                     </div>
-                                ))}
-                                {dayEvents.length > 3 && (
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
-                                        +{dayEvents.length - 3} more
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Clock size={12} />
+                                            {event.allDay ? 'All Day' : (() => {
+                                                try {
+                                                    const date = parseISO(event.startDate);
+                                                    return isNaN(date.getTime()) ? 'Invalid Time' : format(date, 'h:mm a');
+                                                } catch {
+                                                    return 'Invalid Time';
+                                                }
+                                            })()}
+                                        </span>
+                                        <span style={{
+                                            display: 'inline-block',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 600,
+                                            background: getCategoryColor(event.category).bg,
+                                            color: 'white'
+                                        }}>
+                                            {event.category}
+                                        </span>
                                     </div>
-                                )}
+                                </div>
                             </div>
+                        ))
+                    ) : (
+                        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 1rem' }}>
+                            <p style={{ fontSize: '0.9rem' }}>No upcoming events.</p>
                         </div>
-                    );
-                })}
+                    )}
+                </div>
             </div>
         </Card>
     );

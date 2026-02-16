@@ -4,15 +4,18 @@ import Button from '../components/common/Button';
 import { ShoppingBag, CheckCircle, Smartphone, Palette, ShieldCheck, Sparkles } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
+import { useLanguage } from '../context/LanguageContext';
+
 const DowdBucksStore: React.FC = () => {
     const { user, spendDowdBucks } = useUser();
     const [purchasing, setPurchasing] = useState<string | null>(null);
+    const { t } = useLanguage();
 
     const items = [
-        { id: 'dark-mode-pro', name: 'Dark Mode Pro', price: 200, description: 'Exclusive high-contrast theme variant', icon: <Smartphone size={32} color="#00A8C6" />, color: '#00A8C6' },
-        { id: 'gold-border', name: 'Gold Avatar Border', price: 500, description: 'Shine in the leaderboards', icon: <ShieldCheck size={32} color="gold" />, color: 'gold' },
-        { id: 'custom-accent', name: 'Custom Accent Pack', price: 300, description: 'Change UI accent to your choice', icon: <Palette size={32} color="#C860F5" />, color: '#C860F5' },
-        { id: 'badge-flare', name: 'Badge Flare', price: 150, description: 'Add sparkle to your status badges', icon: <Sparkles size={32} color="#FF9F0A" />, color: '#FF9F0A' },
+        { id: 'dark-mode-pro', name: t('item.darkMode'), price: 200, description: t('item.darkModeDesc'), icon: <Smartphone size={32} color="#00A8C6" />, color: '#00A8C6' },
+        { id: 'gold-border', name: t('item.goldBorder'), price: 500, description: t('item.goldBorderDesc'), icon: <ShieldCheck size={32} color="gold" />, color: 'gold' },
+        { id: 'custom-accent', name: t('item.customAccent'), price: 300, description: t('item.customAccentDesc'), icon: <Palette size={32} color="#C860F5" />, color: '#C860F5' },
+        { id: 'badge-flare', name: t('item.badgeFlare'), price: 150, description: t('item.badgeFlareDesc'), icon: <Sparkles size={32} color="#FF9F0A" />, color: '#FF9F0A' },
     ];
 
     const handleBuy = (itemId: string, price: number) => {
@@ -21,7 +24,7 @@ const DowdBucksStore: React.FC = () => {
         setTimeout(() => {
             const success = spendDowdBucks(price, itemId);
             if (!success) {
-                alert('Insufficient DowdBucks!');
+                alert(t('store.insufficient'));
             }
             setPurchasing(null);
         }, 800);
@@ -31,8 +34,8 @@ const DowdBucksStore: React.FC = () => {
         <div style={{ paddingBottom: 'var(--space-12)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-8)' }}>
                 <div>
-                    <h1 style={{ margin: 0 }}>DowdBucks Store</h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>Spend your hard-earned rewards on exclusive flair</p>
+                    <h1 style={{ margin: 0 }}>{t('store.title')}</h1>
+                    <p style={{ color: 'var(--text-secondary)' }}>{t('store.subtitle')}</p>
                 </div>
                 <Card elevated style={{ padding: 'var(--space-3) var(--space-6)', display: 'flex', alignItems: 'center', gap: '12px', border: '2px solid var(--color-brand-gold)' }}>
                     <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--color-brand-gold)' }}>Ⓓ</span>
@@ -61,7 +64,7 @@ const DowdBucksStore: React.FC = () => {
 
                             {isOwned ? (
                                 <Button variant="outline" disabled style={{ width: '100%', borderColor: 'transparent', color: 'var(--color-success)' }}>
-                                    <CheckCircle size={18} style={{ marginRight: '8px' }} /> Owned
+                                    <CheckCircle size={18} style={{ marginRight: '8px' }} /> {t('store.owned')}
                                 </Button>
                             ) : (
                                 <Button
@@ -70,7 +73,7 @@ const DowdBucksStore: React.FC = () => {
                                     onClick={() => handleBuy(item.id, item.price)}
                                     disabled={!canAfford || purchasing === item.id}
                                 >
-                                    {purchasing === item.id ? 'Processing...' : `Buy (Ⓓ${item.price})`}
+                                    {purchasing === item.id ? t('store.processing') : `${t('store.buy')} (Ⓓ${item.price})`}
                                 </Button>
                             )}
                         </Card>
@@ -81,7 +84,7 @@ const DowdBucksStore: React.FC = () => {
                     <div style={{ color: 'var(--text-tertiary)', marginBottom: 'var(--space-4)' }}>
                         <ShoppingBag size={48} />
                     </div>
-                    <h3 style={{ color: 'var(--text-secondary)' }}>More coming soon</h3>
+                    <h3 style={{ color: 'var(--text-secondary)' }}>{t('store.comingSoon')}</h3>
                 </Card>
             </div>
         </div>

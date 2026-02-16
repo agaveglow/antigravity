@@ -5,13 +5,15 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, Headphones } from 'lucide-react';
 import Modal from '../components/common/Modal';
+import { useLanguage } from '../context/LanguageContext';
 
 const BookingAndLoans: React.FC = () => {
     const { user, role } = useUser();
     const {
-        studios, bookings, deleteStudio, bookStudio, updateBookingStatus,
-        equipment, loans, requestLoan, updateLoanStatus, updateEquipment
+        studios, bookings, deleteStudio, bookStudio, updateBookingStatus, addStudio,
+        equipment, loans, requestLoan, updateLoanStatus, updateEquipment, addEquipment, deleteEquipment
     } = useResources();
+    const { t } = useLanguage();
 
     const [activeTab, setActiveTab] = useState<'studio' | 'equipment'>('studio');
 
@@ -34,6 +36,43 @@ const BookingAndLoans: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [editCategory, setEditCategory] = useState<Equipment['category']>('Other');
     const [editTotalQty, setEditTotalQty] = useState(1);
+
+    // Add Equipment State
+    const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemCategory, setNewItemCategory] = useState<Equipment['category']>('Other');
+    const [newItemQty, setNewItemQty] = useState(1);
+
+    // Add Studio State
+    const [isAddStudioModalOpen, setIsAddStudioModalOpen] = useState(false);
+    const [newStudioName, setNewStudioName] = useState('');
+    const [newStudioCapacity, setNewStudioCapacity] = useState(1);
+    const [newStudioEquipment, setNewStudioEquipment] = useState('');
+
+    // --- Studio Handlers ---
+    const handleAddStudio = () => {
+        addStudio({
+            name: newStudioName,
+            capacity: newStudioCapacity,
+            equipment: newStudioEquipment.split(',').map(s => s.trim()).filter(Boolean)
+        });
+        setIsAddStudioModalOpen(false);
+        setNewStudioName('');
+        setNewStudioCapacity(1);
+        setNewStudioEquipment('');
+    };
+
+    const handleAddEquipment = () => {
+        addEquipment({
+            name: newItemName,
+            category: newItemCategory,
+            totalQty: newItemQty,
+            availableQty: newItemQty
+        });
+        setIsAddEquipmentModalOpen(false);
+        setNewItemName('');
+        setNewItemQty(1);
+    };
 
     // --- Studio Handlers ---
     const handleBookStudio = () => {
@@ -113,15 +152,15 @@ const BookingAndLoans: React.FC = () => {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                         {activeTab === 'studio' ? <CalendarIcon size={32} className="text-primary" /> : <Headphones size={32} className="text-primary" />}
-                        <h1 style={{ margin: 0 }}>Studio & Equipment</h1>
+                        <h1 style={{ margin: 0 }}>{t('booking.title')}</h1>
                     </div>
                     <p style={{ color: 'var(--text-secondary)' }}>
-                        Manage studio time and equipment loans
+                        {t('booking.subtitle')}
                     </p>
                 </div>
-                {role === 'teacher' && (
-                    <Button variant="primary" onClick={() => alert(activeTab === 'studio' ? 'Add Studio Modal' : 'Add Equipment Modal')}>
-                        <Plus size={20} style={{ marginRight: '8px' }} /> Add {activeTab === 'studio' ? 'Studio' : 'Item'}
+                {(role === 'teacher' || role === 'admin') && (
+                    <Button variant="primary" onClick={() => activeTab === 'studio' ? setIsAddStudioModalOpen(true) : setIsAddEquipmentModalOpen(true)}>
+                        <Plus size={20} style={{ marginRight: '8px' }} /> {activeTab === 'studio' ? t('booking.addStudio') : t('booking.addItem')}
                     </Button>
                 )}
             </div>
@@ -140,7 +179,7 @@ const BookingAndLoans: React.FC = () => {
                         fontWeight: activeTab === 'studio' ? 600 : 400
                     }}
                 >
-                    Studio Booking
+                    {t('booking.tab.studio')}
                 </button>
                 <button
                     onClick={() => setActiveTab('equipment')}
@@ -154,20 +193,20 @@ const BookingAndLoans: React.FC = () => {
                         fontWeight: activeTab === 'equipment' ? 600 : 400
                     }}
                 >
-                    Equipment Loans
+                    {t('booking.tab.equipment')}
                 </button>
             </div>
 
             {/* --- Studio Content --- */}
             {activeTab === 'studio' && (
                 <>
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>Available Studios</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{t('booking.availableStudios')}</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' }}>
                         {studios.map(studio => (
                             <Card key={studio.id} elevated style={{ display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--space-4)' }}>
                                     <h3 style={{ margin: 0 }}>{studio.name}</h3>
-                                    {role === 'teacher' && (
+                                    {(role === 'teacher' || role === 'admin') && (
                                         <button
                                             onClick={() => { if (confirm('Delete studio?')) deleteStudio(studio.id); }}
                                             style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
@@ -177,8 +216,8 @@ const BookingAndLoans: React.FC = () => {
                                     )}
                                 </div>
                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--space-4)', flex: 1 }}>
-                                    <p><strong>Capacity:</strong> {studio.capacity} people</p>
-                                    <p><strong>Equipment:</strong> {studio.equipment.join(', ')}</p>
+                                    <p><strong>{t('booking.booking.capacity')}:</strong> {studio.capacity} {t('booking.people')}</p>
+                                    <p><strong>{t('booking.equipment')}:</strong> {studio.equipment.join(', ')}</p>
                                 </div>
                                 <Button
                                     variant="primary"
@@ -188,16 +227,16 @@ const BookingAndLoans: React.FC = () => {
                                         setIsBookingModalOpen(true);
                                     }}
                                 >
-                                    {role === 'teacher' ? 'Manage Schedule' : 'Book Now'}
+                                    {(role === 'teacher' || role === 'admin') ? t('booking.manageSchedule') : t('booking.bookNow')}
                                 </Button>
                             </Card>
                         ))}
                     </div>
 
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{role === 'teacher' ? 'Booking Requests' : 'My Bookings'}</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{(role === 'teacher' || role === 'admin') ? t('booking.requests') : t('booking.myBookings')}</h2>
                     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
                         {bookings
-                            .filter(b => role === 'teacher' || b.userId === user?.id)
+                            .filter(b => (role === 'teacher' || role === 'admin') || b.userId === user?.id)
                             .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
                             .map(booking => {
                                 const studio = studios.find(s => s.id === booking.studioId);
@@ -207,7 +246,7 @@ const BookingAndLoans: React.FC = () => {
                                     <Card key={booking.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: isPast ? 0.6 : 1 }}>
                                         <div>
                                             <h4 style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {studio?.name || 'Unknown Studio'}
+                                                {studio?.name || t('booking.unknownStudio')}
                                                 <span style={{
                                                     fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px',
                                                     background: booking.status === 'Approved' ? 'var(--color-success-alpha)' :
@@ -221,29 +260,29 @@ const BookingAndLoans: React.FC = () => {
                                             <div style={{ color: 'var(--text-dd)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CalendarIcon size={14} /> {formatDate(booking.startTime)}</span>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {Math.round((new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime()) / 3600000)}h</span>
-                                                {role === 'teacher' && <span>• by {booking.userName}</span>}
+                                                {(role === 'teacher' || role === 'admin') && <span>• {t('booking.by')} {booking.userName}</span>}
                                             </div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                Purpose: {booking.purpose}
+                                                {t('booking.purpose')}: {booking.purpose}
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            {role === 'teacher' && booking.status === 'Pending' && (
+                                            {(role === 'teacher' || role === 'admin') && booking.status === 'Pending' && (
                                                 <>
-                                                    <Button variant="outline" size="sm" onClick={() => updateBookingStatus(booking.id, 'Rejected')} style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>Reject</Button>
-                                                    <Button variant="primary" size="sm" onClick={() => updateBookingStatus(booking.id, 'Approved')}>Approve</Button>
+                                                    <Button variant="outline" size="sm" onClick={() => updateBookingStatus(booking.id, 'Rejected')} style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>{t('booking.reject')}</Button>
+                                                    <Button variant="primary" size="sm" onClick={() => updateBookingStatus(booking.id, 'Approved')}>{t('booking.approve')}</Button>
                                                 </>
                                             )}
                                             {booking.status === 'Pending' && role === 'student' && (
-                                                <Button variant="ghost" size="sm" onClick={() => updateBookingStatus(booking.id, 'Cancelled')} style={{ color: 'var(--text-tertiary)' }}>Cancel</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => updateBookingStatus(booking.id, 'Cancelled')} style={{ color: 'var(--text-tertiary)' }}>{t('booking.cancel')}</Button>
                                             )}
                                         </div>
                                     </Card>
                                 );
                             })}
-                        {bookings.filter(b => role === 'teacher' || b.userId === user?.id).length === 0 && (
-                            <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No bookings found.</p>
+                        {bookings.filter(b => (role === 'teacher' || role === 'admin') || b.userId === user?.id).length === 0 && (
+                            <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>{t('booking.noBookings')}</p>
                         )}
                     </div>
                 </>
@@ -252,7 +291,7 @@ const BookingAndLoans: React.FC = () => {
             {/* --- Equipment Content --- */}
             {activeTab === 'equipment' && (
                 <>
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>Available Equipment</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{t('booking.availableEquipment')}</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' }}>
                         {equipment.map(item => (
                             <Card key={item.id} elevated style={{ display: 'flex', flexDirection: 'column', opacity: item.availableQty === 0 ? 0.6 : 1 }}>
@@ -262,13 +301,26 @@ const BookingAndLoans: React.FC = () => {
                                 }}>
                                     🎧
                                 </div>
-                                <h3 style={{ margin: '0 0 4px' }}>{item.name}</h3>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', width: '100%' }}>
+                                    <h3 style={{ margin: '0 0 4px', flex: 1 }}>{item.name}</h3>
+                                    {(role === 'teacher' || role === 'admin') && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (confirm(`Delete ${item.name}?`)) deleteEquipment(item.id);
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0 0 0 8px' }}
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    )}
+                                </div>
                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--space-4)', flex: 1 }}>
                                     <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-input)', fontSize: '0.75rem', marginRight: '8px' }}>
                                         {item.category}
                                     </span>
                                     <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Stock:</span>
+                                        <span>{t('booking.stock')}:</span>
                                         <span style={{ color: item.availableQty > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
                                             {item.availableQty} / {item.totalQty}
                                         </span>
@@ -277,9 +329,9 @@ const BookingAndLoans: React.FC = () => {
                                 <Button
                                     variant={item.availableQty > 0 ? 'primary' : 'outline'}
                                     style={{ width: '100%' }}
-                                    disabled={item.availableQty === 0 || role === 'teacher'}
+                                    disabled={item.availableQty === 0 || (role === 'teacher' || role === 'admin')}
                                     onClick={() => {
-                                        if (role === 'teacher') {
+                                        if (role === 'teacher' || role === 'admin') {
                                             handleEditEquipment(item);
                                         } else {
                                             setSelectedItem(item);
@@ -287,16 +339,16 @@ const BookingAndLoans: React.FC = () => {
                                         }
                                     }}
                                 >
-                                    {role === 'teacher' ? 'Edit Item' : item.availableQty > 0 ? 'Request Loan' : 'Out of Stock'}
+                                    {(role === 'teacher' || role === 'admin') ? t('booking.editItem') : item.availableQty > 0 ? t('booking.requestLoan') : t('booking.outOfStock')}
                                 </Button>
                             </Card>
                         ))}
                     </div>
 
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{role === 'teacher' ? 'Loan Requests & Active Loans' : 'My Loans'}</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{(role === 'teacher' || role === 'admin') ? t('booking.booking.loanRequests') : t('booking.myLoans')}</h2>
                     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
                         {loans
-                            .filter(l => role === 'teacher' || l.userId === user?.id)
+                            .filter(l => (role === 'teacher' || role === 'admin') || l.userId === user?.id)
                             .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
                             .map(loan => {
                                 const item = equipment.find(e => e.id === loan.equipmentId);
@@ -305,7 +357,7 @@ const BookingAndLoans: React.FC = () => {
                                     <Card key={loan.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div>
                                             <h4 style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {loan.qty}x {item?.name || 'Unknown Item'}
+                                                {loan.qty}x {item?.name || t('booking.unknownItem')}
                                                 <span style={{
                                                     fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px',
                                                     background: loan.status === 'Active' ? 'var(--color-success-alpha)' :
@@ -319,40 +371,122 @@ const BookingAndLoans: React.FC = () => {
                                                 </span>
                                             </h4>
                                             <div style={{ color: 'var(--text-dd)', fontSize: '0.9rem' }}>
-                                                Due: {formatLoanDate(loan.returnDate)}
-                                                {role === 'teacher' && <span> • Requested by {loan.userName}</span>}
+                                                {t('booking.due')}: {formatLoanDate(loan.returnDate)}
+                                                {(role === 'teacher' || role === 'admin') && <span> • {t('booking.requestedBy')} {loan.userName}</span>}
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            {role === 'teacher' && loan.status === 'Pending' && (
+                                            {(role === 'teacher' || role === 'admin') && loan.status === 'Pending' && (
                                                 <>
-                                                    <Button variant="outline" size="sm" onClick={() => updateLoanStatus(loan.id, 'Rejected')} style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>Reject</Button>
-                                                    <Button variant="primary" size="sm" onClick={() => updateLoanStatus(loan.id, 'Active')}>Approve</Button>
+                                                    <Button variant="outline" size="sm" onClick={() => updateLoanStatus(loan.id, 'Rejected')} style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>{t('booking.reject')}</Button>
+                                                    <Button variant="primary" size="sm" onClick={() => updateLoanStatus(loan.id, 'Active')}>{t('booking.approve')}</Button>
                                                 </>
                                             )}
-                                            {role === 'teacher' && loan.status === 'Active' && (
-                                                <Button variant="outline" size="sm" onClick={() => updateLoanStatus(loan.id, 'Returned')}>Mark Returned</Button>
+                                            {(role === 'teacher' || role === 'admin') && loan.status === 'Active' && (
+                                                <Button variant="outline" size="sm" onClick={() => updateLoanStatus(loan.id, 'Returned')}>{t('booking.markReturned')}</Button>
                                             )}
                                             {loan.status === 'Pending' && role === 'student' && (
-                                                <Button variant="ghost" size="sm" onClick={() => updateLoanStatus(loan.id, 'Rejected')} style={{ color: 'var(--text-tertiary)' }}>Cancel</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => updateLoanStatus(loan.id, 'Rejected')} style={{ color: 'var(--text-tertiary)' }}>{t('booking.cancel')}</Button>
                                             )}
                                         </div>
                                     </Card>
                                 );
                             })}
-                        {loans.filter(l => role === 'teacher' || l.userId === user?.id).length === 0 && (
-                            <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No loans found.</p>
+                        {loans.filter(l => (role === 'teacher' || role === 'admin') || l.userId === user?.id).length === 0 && (
+                            <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>{t('booking.noLoans')}</p>
                         )}
                     </div>
                 </>
             )}
 
             {/* --- Modals --- */}
-            <Modal isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} title={`Book ${selectedStudio?.name} `}>
+            {/* Add Studio Modal */}
+            <Modal isOpen={isAddStudioModalOpen} onClose={() => setIsAddStudioModalOpen(false)} title={t('booking.modal.addStudio')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Date</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.name')}</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. Studio C"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newStudioName}
+                            onChange={e => setNewStudioName(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.capacity')}</label>
+                        <input
+                            type="number" min="1"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newStudioCapacity}
+                            onChange={e => setNewStudioCapacity(parseInt(e.target.value) || 1)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.list')}</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. Piano, Drum Kit, Amps"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newStudioEquipment}
+                            onChange={e => setNewStudioEquipment(e.target.value)}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                        <Button variant="ghost" onClick={() => setIsAddStudioModalOpen(false)}>{t('booking.cancel')}</Button>
+                        <Button variant="primary" onClick={handleAddStudio} disabled={!newStudioName}>{t('booking.addStudio')}</Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Add Equipment Modal */}
+            <Modal isOpen={isAddEquipmentModalOpen} onClose={() => setIsAddEquipmentModalOpen(false)} title={t('booking.modal.addEquipment')}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.name')}</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. AKG C414"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newItemName}
+                            onChange={e => setNewItemName(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.category')}</label>
+                        <select
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newItemCategory}
+                            onChange={e => setNewItemCategory(e.target.value as any)}
+                        >
+                            <option value="Microphone">{t('booking.cat.mic')}</option>
+                            <option value="Instrument">{t('booking.cat.inst')}</option>
+                            <option value="Cable">{t('booking.cat.cable')}</option>
+                            <option value="Interface">{t('booking.cat.interface')}</option>
+                            <option value="Other">{t('booking.cat.other')}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.quantity')}</label>
+                        <input
+                            type="number" min="1"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newItemQty}
+                            onChange={e => setNewItemQty(parseInt(e.target.value) || 1)}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                        <Button variant="ghost" onClick={() => setIsAddEquipmentModalOpen(false)}>{t('booking.cancel')}</Button>
+                        <Button variant="primary" onClick={handleAddEquipment} disabled={!newItemName}>{t('booking.addItem')}</Button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} title={`${t('booking.modal.book')} ${selectedStudio?.name} `}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.date')}</label>
                         <input
                             type="date"
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -362,7 +496,7 @@ const BookingAndLoans: React.FC = () => {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Time</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.time')}</label>
                             <input
                                 type="time"
                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -371,7 +505,7 @@ const BookingAndLoans: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Duration (Hours)</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.duration')}</label>
                             <input
                                 type="number" min="1" max="8"
                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -381,7 +515,7 @@ const BookingAndLoans: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Purpose</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.purpose')}</label>
                         <textarea
                             rows={3} placeholder="e.g. Recording vocals for Assessment 1"
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', resize: 'vertical' }}
@@ -390,26 +524,26 @@ const BookingAndLoans: React.FC = () => {
                         />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                        <Button variant="ghost" onClick={() => setIsBookingModalOpen(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleBookStudio} disabled={!bookingDate || !bookingTime || !bookingPurpose}>Confirm Booking</Button>
+                        <Button variant="ghost" onClick={() => setIsBookingModalOpen(false)}>{t('booking.cancel')}</Button>
+                        <Button variant="primary" onClick={handleBookStudio} disabled={!bookingDate || !bookingTime || !bookingPurpose}>{t('booking.modal.book')}</Button>
                     </div>
                 </div>
             </Modal>
 
-            <Modal isOpen={isLoanModalOpen} onClose={() => setIsLoanModalOpen(false)} title={`Request ${selectedItem?.name} `}>
+            <Modal isOpen={isLoanModalOpen} onClose={() => setIsLoanModalOpen(false)} title={`${t('booking.modal.request')} ${selectedItem?.name} `}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Quantity</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.loanQty')}</label>
                         <input
                             type="number" min="1" max={selectedItem?.availableQty || 1}
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
                             value={loanQty}
                             onChange={e => setLoanQty(parseInt(e.target.value))}
                         />
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>Max available: {selectedItem?.availableQty}</p>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>{t('booking.info.max')}: {selectedItem?.availableQty}</p>
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Return Date</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.returnDate')}</label>
                         <input
                             type="date"
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -418,16 +552,16 @@ const BookingAndLoans: React.FC = () => {
                         />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                        <Button variant="ghost" onClick={() => setIsLoanModalOpen(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleRequestLoan} disabled={!returnDate}>Submit Request</Button>
+                        <Button variant="ghost" onClick={() => setIsLoanModalOpen(false)}>{t('booking.cancel')}</Button>
+                        <Button variant="primary" onClick={handleRequestLoan} disabled={!returnDate}>{t('booking.requestLoan')}</Button>
                     </div>
                 </div>
             </Modal>
 
-            <Modal isOpen={isEditEquipmentModalOpen} onClose={() => setIsEditEquipmentModalOpen(false)} title={`Edit ${selectedItem?.name}`}>
+            <Modal isOpen={isEditEquipmentModalOpen} onClose={() => setIsEditEquipmentModalOpen(false)} title={`${t('booking.modal.edit')} ${selectedItem?.name}`}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Equipment Name</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.name')}</label>
                         <input
                             type="text"
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -436,21 +570,21 @@ const BookingAndLoans: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Category</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.category')}</label>
                         <select
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
                             value={editCategory}
                             onChange={e => setEditCategory(e.target.value as any)}
                         >
-                            <option value="Microphone">Microphone</option>
-                            <option value="Instrument">Instrument</option>
-                            <option value="Cable">Cable</option>
-                            <option value="Interface">Interface</option>
-                            <option value="Other">Other</option>
+                            <option value="Microphone">{t('booking.cat.mic')}</option>
+                            <option value="Instrument">{t('booking.cat.inst')}</option>
+                            <option value="Cable">{t('booking.cat.cable')}</option>
+                            <option value="Interface">{t('booking.cat.interface')}</option>
+                            <option value="Other">{t('booking.cat.other')}</option>
                         </select>
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Total Quantity</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.quantity')}</label>
                         <input
                             type="number" min="0"
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -458,12 +592,12 @@ const BookingAndLoans: React.FC = () => {
                             onChange={e => setEditTotalQty(parseInt(e.target.value) || 0)}
                         />
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                            Currently Available: {selectedItem?.availableQty} (Will update based on change)
+                            {t('booking.info.current')}: {selectedItem?.availableQty}
                         </p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                        <Button variant="ghost" onClick={() => setIsEditEquipmentModalOpen(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleSaveEquipment}>Save Changes</Button>
+                        <Button variant="ghost" onClick={() => setIsEditEquipmentModalOpen(false)}>{t('booking.cancel')}</Button>
+                        <Button variant="primary" onClick={handleSaveEquipment}>{t('booking.modal.edit')}</Button>
                     </div>
                 </div>
             </Modal>

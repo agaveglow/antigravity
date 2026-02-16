@@ -1,12 +1,15 @@
+
 import React, { useState } from 'react';
+import { useUser } from '../context/UserContext';
+import { useStudents } from '../context/StudentsContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useCurriculum } from '../context/CurriculumContext';
+import { useSubmissions } from '../context/SubmissionContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import Avatar from '../components/common/Avatar';
-import { useCurriculum } from '../context/CurriculumContext';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Music, Mic, Headphones, Calendar, Clock, Sliders, Guitar, Star, Trophy, Sparkles } from 'lucide-react';
-import { useUser } from '../context/UserContext';
-import { useSubmissions } from '../context/SubmissionContext';
+import { Star, Clock, ChevronRight, Music, Sliders, Headphones, Calendar, Guitar, BookOpen, FolderOpen, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react';
+import Avatar from '../components/common/Avatar';
 import WeeklyCalendarWidget from '../components/WeeklyCalendarWidget';
 import Modal from '../components/common/Modal';
 import Metronome from '../components/tools/Metronome';
@@ -15,61 +18,95 @@ import ScalesAndModes from '../components/tools/ScalesAndModes';
 import ChordLibrary from '../components/tools/ChordLibrary';
 
 const StudentDashboard: React.FC = () => {
-    const { getProjectsByLevel } = useCurriculum();
     const { user } = useUser();
+    const { students } = useStudents();
+    const { t } = useLanguage();
+    const { getProjectsByCohort } = useCurriculum();
     const { submissions } = useSubmissions();
     const navigate = useNavigate();
+    const [activeTool, setActiveTool] = useState<string | null>(null);
+    const [showAllProjects, setShowAllProjects] = useState(false);
 
-    const calculateProgress = (projectId?: string) => {
+    // Find the live student data based on the logged-in user
+    const liveStudent = students.find(s => s.id === user?.id || s.username === user?.username);
+
+    const calculateProgress = (projectId: string) => {
         if (!user) return 0;
         const projectSubmissions = submissions.filter(s =>
             s.studentId === user.id &&
-            (projectId ? s.projectId === projectId : true)
+            s.projectId === projectId
         );
-        const gradedCount = projectSubmissions.filter(s => s.status === 'Graded').length;
-        const totalPossible = projectId ? 4 : 10;
-        return Math.min(Math.round((gradedCount / totalPossible) * 100), 100);
+        const completedCount = projectSubmissions.filter(s => s.status === 'Graded' || s.status === 'Verified').length;
+        const totalPossible = 4; // Assuming 4 tasks per project for now
+        return Math.min(Math.round((completedCount / totalPossible) * 100), 100);
     };
 
-    const activeProjects = getProjectsByLevel(
-        user?.level || 'Level 3',
-        user?.year || 'Year 1'
-    );
+    const activeProjects = getProjectsByCohort(user?.cohort || 'Level 3A').filter(p => p.published !== false);
 
     const tools = [
         { id: 'metronome', label: 'Metronome', icon: <Clock size={24} />, color: '#FF9F0A', component: Metronome, shape: 'leaf-1' },
-        { id: 'tuner', label: 'Tuner', icon: <Sliders size={24} />, color: '#3232C2', component: Tuner, shape: 'leaf-2' },
-        { id: 'scales', label: 'Scales & Modes', icon: <Music size={24} />, color: '#C860F5', component: ScalesAndModes, shape: 'leaf-1' },
-        { id: 'booking', label: 'Studio Booking', icon: <Calendar size={24} />, color: '#30B0C7', component: null, shape: 'leaf-2' },
-        { id: 'equipment', label: 'Equip. Loan', icon: <Headphones size={24} />, color: '#34C759', component: null, shape: 'leaf-1' },
+        { id: 'tuner', label: 'Tuner', icon: <Sliders size={24} />, color: '#32D74B', component: Tuner, shape: 'leaf-2' },
+        { id: 'scales', label: 'Scales & Modes', icon: <Music size={24} />, color: '#30B0C7', component: ScalesAndModes, shape: 'leaf-1' },
         { id: 'chords', label: 'Chord Library', icon: <Guitar size={24} />, color: '#FFD60A', component: ChordLibrary, shape: 'leaf-2' },
-        { id: 'collab', label: 'Find Collab', icon: <Mic size={24} />, color: '#FF2D55', component: null, shape: 'leaf-1' },
+        { id: 'booking', label: 'Book Studio', icon: <Calendar size={24} />, color: '#BF5AF2', component: null, shape: 'leaf-1' },
+        { id: 'equipment', label: 'Loan Equipment', icon: <Headphones size={24} />, color: '#FF2D55', component: null, shape: 'leaf-2' },
     ];
-
-    const [activeTool, setActiveTool] = useState<string | null>(null);
 
     return (
         <div className="dashboard-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
-            {/* Top Section: Avatar Surrounded by Stats */}
+            {/* Top Section: Avatar & Stats - Centered Layout */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(200px, 1fr) auto minmax(200px, 1fr)',
-                gap: 'var(--space-6)',
+                gridTemplateColumns: '1fr auto 1fr', // Left Card | Avatar | Right Card
+                gap: 'var(--space-8)',
                 alignItems: 'center',
-                marginBottom: 'var(--space-16)'
-            }}>
+                marginBottom: 'var(--space-12)',
+            }} className="dashboard-header-grid">
 
-                {/* Left Stat: Level */}
-                <Card shape="leaf-1" elevated style={{ background: 'linear-gradient(135deg, var(--color-brand-blue) 0%, #4a4ae2 100%)', color: 'white', border: 'none', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '50%' }}>
-                            <Trophy size={24} color="white" />
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Current Level</div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>{user?.levelNumber || 1}</div>
-                        </div>
+                {/* Left: DowdBucks Card */}
+                <Card elevated hover style={{
+                    background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(243, 208, 96, 0.1) 100%)',
+                    padding: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1.5rem',
+                    height: '100%',
+                    border: '1px solid rgba(243, 208, 96, 0.3)',
+                    boxShadow: '0 4px 20px rgba(243, 208, 96, 0.15)',
+                    borderRadius: '24px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: '100px',
+                        height: '100px',
+                        background: 'var(--color-brand-gold)',
+                        filter: 'blur(60px)',
+                        opacity: 0.2,
+                        borderRadius: '50%'
+                    }} />
+
+                    <div style={{
+                        background: 'linear-gradient(135deg, #FFF9E5 0%, #FFF0C2 100%)',
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 8px 16px rgba(243, 208, 96, 0.2)',
+                        transform: 'rotate(-5deg)'
+                    }}>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-brand-gold)', lineHeight: 1 }}>Ⓓ</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flex: 1, zIndex: 1 }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: '4px' }}>{t('dashboard.dowdBucks')}</div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-brand-gold)', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{user?.balance || 0}</div>
                     </div>
                 </Card>
 
@@ -85,7 +122,7 @@ const StudentDashboard: React.FC = () => {
                         <Avatar
                             src={user?.avatar}
                             alt={user?.name}
-                            size={140}
+                            size={160} // Slightly larger
                             elevated
                             style={{
                                 border: '6px solid var(--bg-surface)',
@@ -98,61 +135,197 @@ const StudentDashboard: React.FC = () => {
                             right: 5,
                             background: 'var(--color-brand-gold)',
                             borderRadius: '50%',
-                            padding: '10px',
+                            padding: '12px',
                             border: '4px solid var(--bg-surface)',
                             boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
                         }}>
-                            <Star size={24} fill="white" color="white" />
+                            <Star size={28} fill="white" color="white" />
+                        </div>
+                    </div>
+                    <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem', whiteSpace: 'nowrap' }}>
+                        {t('dashboard.hello')}, <span style={{ background: 'linear-gradient(to right, #FF2D55, #C860F5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.name?.split(' ')[0] || 'Student'}</span>!
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '300px' }}>
+                        {t('dashboard.ready')}
+                    </p>
+                </div>
+
+                {/* Right: XP Card - Matching Style */}
+                <Card elevated hover style={{
+                    background: 'linear-gradient(135deg, var(--bg-surface) 0%, rgba(120, 120, 255, 0.1) 100%)', // Blue/Purple tint
+                    padding: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1.5rem',
+                    height: '100%',
+                    border: '1px solid rgba(120, 120, 255, 0.3)',
+                    boxShadow: '0 4px 20px rgba(120, 120, 255, 0.15)',
+                    borderRadius: '24px', // Matching radius
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: '100px',
+                        height: '100px',
+                        background: 'var(--color-brand-purple)',
+                        filter: 'blur(60px)',
+                        opacity: 0.2,
+                        borderRadius: '50%'
+                    }} />
+
+                    <div style={{
+                        background: `conic-gradient(var(--color-brand-purple) ${((liveStudent?.xp || 0) % 250) / 250 * 360}deg, var(--bg-subtle) 0deg)`,
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%', // Circular progress
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 8px 16px rgba(120, 120, 255, 0.2)',
+                        transform: 'rotate(-5deg)',
+                        padding: '4px' // Ring thickness
+                    }}>
+                        <div style={{
+                            background: 'var(--bg-surface)',
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            color: 'var(--color-brand-purple)',
+                            fontSize: '0.9rem'
+                        }}>
+                            Start
                         </div>
                     </div>
 
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', whiteSpace: 'nowrap' }}>
-                        Hello, <span style={{ background: 'linear-gradient(to right, #FF2D55, #C860F5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.name?.split(' ')[0] || 'Student'}</span>!
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '1.5rem', maxWidth: '400px' }}>
-                        Ready to make some noise? You're doing great.
-                    </p>
-
-                    {/* DowdBucks - Centered below text */}
-                    <Card shape="pill" elevated style={{ background: 'var(--bg-surface)', padding: '0.75rem 2rem', display: 'inline-flex', alignItems: 'center', gap: '1rem', minWidth: 'auto' }}>
-                        <div style={{ background: 'rgba(50, 215, 75, 0.1)', padding: '8px', borderRadius: '50%' }}>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#32D74B' }}>Ⓓ</div>
-                        </div>
-                        <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>DowdBucks</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#32D74B', lineHeight: 1 }}>{user?.balance || 0}</div>
-                        </div>
-                    </Card>
-                </div>
-
-                {/* Right Stat: XP */}
-                <Card shape="leaf-2" elevated style={{ background: 'var(--bg-surface)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ background: 'rgba(255, 159, 10, 0.1)', padding: '12px', borderRadius: '50%' }}>
-                            <Sparkles size={24} color="#FF9F0A" />
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Total XP</div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user?.xp || 0}</div>
-                        </div>
+                    <div style={{ textAlign: 'right', flex: 1, zIndex: 1 }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: '4px' }}>{t('dashboard.level')} {Math.floor((liveStudent?.xp || 0) / 250) + 1}</div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-brand-purple)', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{liveStudent?.xp || 0} <span style={{ fontSize: '1rem', fontWeight: 500 }}>{t('dashboard.xp')}</span></div>
                     </div>
                 </Card>
             </div>
 
             {/* Main Content Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-6)', alignItems: 'start' }}>
+            <div className="dashboard-grid student-dashboard-layout">
 
-                {/* Left Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                {/* Quick Navigation Cards */}
+                <div className="nav-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-6)' }}>
+                    <Card
+                        elevated
+                        hover
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: 'var(--space-6)',
+                            minHeight: '160px',
+                            background: 'linear-gradient(135deg, var(--bg-surface), rgba(0, 168, 198, 0.05))'
+                        }}
+                        onClick={() => navigate('/student/learning')}
+                    >
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'rgba(0, 168, 198, 0.1)',
+                            color: 'var(--color-brand-cyan)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <BookOpen size={28} />
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>Learning Hub</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Access your learning materials</p>
+                    </Card>
 
-                    {/* Active Projects */}
+                    <Card
+                        elevated
+                        hover
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: 'var(--space-6)',
+                            minHeight: '160px',
+                            background: 'linear-gradient(135deg, var(--bg-surface), rgba(138, 43, 226, 0.05))'
+                        }}
+                        onClick={() => navigate('/student/store')}
+                    >
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'rgba(138, 43, 226, 0.1)',
+                            color: 'var(--color-brand-purple)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <ShoppingBag size={28} />
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>Rewards Shop</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Spend your DowdBucks</p>
+                    </Card>
+
+                    <Card
+                        elevated
+                        hover
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: 'var(--space-6)',
+                            minHeight: '160px',
+                            background: 'linear-gradient(135deg, var(--bg-surface), rgba(160, 216, 179, 0.05))'
+                        }}
+                        onClick={() => navigate('/student/projects')}
+                    >
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'rgba(160, 216, 179, 0.1)',
+                            color: 'var(--color-brand-teal)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <FolderOpen size={28} />
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>Active Projects</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>View and manage projects</p>
+                    </Card>
+                </div>
+
+                {/* Active Projects */}
+                <div className="projects-section" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
                     <section>
                         <h2 style={{ marginBottom: 'var(--space-6)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Star size={24} fill="var(--color-brand-gold)" color="var(--color-brand-gold)" />
-                            Active Projects
+                            {t('dashboard.activeProjects')}
                         </h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-                            {activeProjects.map((project, i) => (
+                            {activeProjects.slice(0, showAllProjects ? undefined : 2).map((project, i) => (
                                 <Card key={project.id} elevated shape={i % 2 === 0 ? 'leaf-1' : 'leaf-2'}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                         <div>
@@ -179,23 +352,32 @@ const StudentDashboard: React.FC = () => {
                                         style={{ width: '100%', justifyContent: 'center' }}
                                         onClick={() => navigate(`/student/project/${project.id}`)}
                                     >
-                                        Continue Project <ChevronRight size={16} style={{ marginLeft: '8px' }} />
+                                        {t('dashboard.continue')} <ChevronRight size={16} style={{ marginLeft: '8px' }} />
                                     </Button>
                                 </Card>
                             ))}
+
+                            {activeProjects.length > 2 && (
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowAllProjects(!showAllProjects)}
+                                    style={{ width: '100%', justifyContent: 'center' }}
+                                >
+                                    {showAllProjects ? (
+                                        <>Show Less <ChevronUp size={16} style={{ marginLeft: '8px' }} /></>
+                                    ) : (
+                                        <>Show All ({activeProjects.length}) <ChevronDown size={16} style={{ marginLeft: '8px' }} /></>
+                                    )}
+                                </Button>
+                            )}
                         </div>
                     </section>
                 </div>
 
-                {/* Right Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', marginTop: 'var(--space-8)' }}>
-
-                    {/* Weekly Calendar */}
-                    <WeeklyCalendarWidget />
-
-                    {/* Quick Tools */}
+                {/* Studio Tools */}
+                <div className="tools-section" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
                     <section>
-                        <h2 style={{ marginBottom: 'var(--space-6)' }}>Studio Tools</h2>
+                        <h2 style={{ marginBottom: 'var(--space-6)' }}>{t('dashboard.studioTools')}</h2>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
                             {tools.map((tool) => (
                                 <Card
@@ -210,11 +392,17 @@ const StudentDashboard: React.FC = () => {
                                         justifyContent: 'center',
                                         textAlign: 'center',
                                         padding: 'var(--space-4)',
-                                        cursor: tool.component ? 'pointer' : 'default',
-                                        opacity: tool.component ? 1 : 0.6,
+                                        cursor: (tool.component || tool.id === 'booking' || tool.id === 'equipment') ? 'pointer' : 'default',
+                                        opacity: (tool.component || tool.id === 'booking' || tool.id === 'equipment') ? 1 : 0.6,
                                         minHeight: '130px'
                                     }}
-                                    onClick={() => tool.component && setActiveTool(tool.id)}
+                                    onClick={() => {
+                                        if (tool.id === 'booking' || tool.id === 'equipment') {
+                                            navigate('/student/resources');
+                                        } else if (tool.component) {
+                                            setActiveTool(tool.id);
+                                        }
+                                    }}
                                 >
                                     <div style={{
                                         color: tool.color,
@@ -233,6 +421,12 @@ const StudentDashboard: React.FC = () => {
                 </div>
             </div>
 
+
+
+            {/* Bottom Section: Weekly Calendar (Full Width) */}
+            <div style={{ marginTop: 'var(--space-8)' }}>
+                <WeeklyCalendarWidget />
+            </div>
             {/* Tool Modals */}
             {tools.map(tool => tool.component && (
                 <Modal key={tool.id} isOpen={activeTool === tool.id} onClose={() => setActiveTool(null)}>
