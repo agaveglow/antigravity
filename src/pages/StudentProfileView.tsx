@@ -11,6 +11,11 @@ import PageTransition from '../components/common/PageTransition';
 import { useStudents } from '../context/StudentsContext';
 import { useUser } from '../context/UserContext';
 import { useSubmissions } from '../context/SubmissionContext'; // Added import
+import DetailedStudentProgress from '../components/curriculum/DetailedStudentProgress'; // Added import
+import { useStudentProgressData } from '../context/useStudentProgressData'; // Added import
+import { exportStudentProgressPDF } from '../utils/exportProgress';
+import { useQuizzes } from '../context/QuizContext';
+import { useCurriculum } from '../context/CurriculumContext';
 
 const StudentProfileView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -18,7 +23,7 @@ const StudentProfileView: React.FC = () => {
     const { getStudentById, deleteStudent, updateStudent } = useStudents();
     const { getStudentSubmissions, updateSubmission } = useSubmissions(); // Added hook usage
     const { verifyMasterPassword } = useUser();
-    const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'progress' | 'notes'>('progress');
     const [showActions, setShowActions] = useState(false);
     const [isEconomyModalOpen, setIsEconomyModalOpen] = useState(false);
     const [economyAction, setEconomyAction] = useState<'award' | 'deduct' | 'set'>('award');
@@ -27,6 +32,9 @@ const StudentProfileView: React.FC = () => {
 
     const student = id ? getStudentById(id) : undefined;
     const studentSubmissions = id ? getStudentSubmissions(id) : []; // Fetch submissions
+    const { overallProgress, courseProgress, projectProgress, loading: progressLoading } = useStudentProgressData(id);
+    const { courses } = useQuizzes(); // Need access to courses for titles
+    const { projects } = useCurriculum(); // Need access to projects for titles
 
     // Reveal Logic
     const [isRevealed, setIsRevealed] = useState(false);
@@ -107,6 +115,36 @@ const StudentProfileView: React.FC = () => {
                                             minWidth: '160px',
                                             overflow: 'hidden'
                                         }}>
+                                            <button
+                                                onClick={() => {
+                                                    if (!student) return;
+                                                    setShowActions(false);
+                                                    exportStudentProgressPDF({
+                                                        student,
+                                                        overallProgress,
+                                                        courseProgress,
+                                                        projectProgress,
+                                                        courses,
+                                                        projects
+                                                    });
+                                                }}
+                                                style={{
+                                                    display: 'block',
+                                                    width: '100%',
+                                                    textAlign: 'left',
+                                                    padding: '8px 16px',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    borderBottom: '1px solid var(--border-color)',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                            >
+                                                Export Progress (PDF)
+                                            </button>
                                             <button
                                                 onClick={() => {
                                                     setShowActions(false);
@@ -251,9 +289,16 @@ const StudentProfileView: React.FC = () => {
                                     <div style={{ paddingLeft: 'var(--space-6)', borderLeft: '1px solid var(--border-color)' }}>
                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Overall Progress</div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-brand-cyan)' }}>68%</span>
+                                            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-brand-cyan)' }}>
+                                                {progressLoading ? '...' : `${overallProgress}%`}
+                                            </span>
                                             <div style={{ width: '100px', height: '8px', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
-                                                <div style={{ width: '68%', height: '100%', background: 'linear-gradient(90deg, var(--color-brand-blue), var(--color-brand-cyan))' }}></div>
+                                                <div style={{
+                                                    width: `${progressLoading ? 0 : overallProgress}%`,
+                                                    height: '100%',
+                                                    background: 'linear-gradient(90deg, var(--color-brand-blue), var(--color-brand-cyan))',
+                                                    transition: 'width 0.5s ease'
+                                                }}></div>
                                             </div>
                                         </div>
                                     </div>
@@ -266,12 +311,7 @@ const StudentProfileView: React.FC = () => {
                                     <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-brand-purple)' }}>{student.xp || 0}</div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>XP Earned</div>
                                 </div>
-                                <div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-brand-orange)' }}>
-                                        {student.grades?.filter(g => g.grade === 'Distinction').length || 0}
-                                    </div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Distinctions</div>
-                                </div>
+
                                 <div>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-success)' }}>{student.balance || 0}</div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>DowdBucks</div>
@@ -284,7 +324,7 @@ const StudentProfileView: React.FC = () => {
                 {/* Tabs */}
                 {/* ... no changes here ... */}
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-6)', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-2)' }}>
-                    {['overview', 'progress', 'notes'].map(tab => (
+                    {['progress', 'notes'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -306,109 +346,89 @@ const StudentProfileView: React.FC = () => {
                 </div>
 
                 {/* Tab Content */}
-                {activeTab === 'overview' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-6)' }}>
-                        <Card elevated>
-                            <h3>Personal Details</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Date of Birth</span>
-                                    <span>{student.dob || 'N/A'}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
-                                    <span>{student.phone || 'N/A'}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Address</span>
-                                    <span style={{ textAlign: 'right' }}>{student.address || 'N/A'}</span>
-                                </div>
-                            </div>
-                        </Card>
 
-                        <Card elevated>
-                            <h3>Recent Activity</h3>
-                            <ul style={{ paddingLeft: '20px', marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>
-                                <li style={{ marginBottom: '8px' }}>Submitted <strong>Unit 3 Task 1</strong> (Yesterday)</li>
-                                <li style={{ marginBottom: '8px' }}>Earned <strong>"Crowd Pleaser"</strong> Badge (2 days ago)</li>
-                                <li style={{ marginBottom: '8px' }}>Logged on from <strong>College Mac Suite</strong> (3 days ago)</li>
-                            </ul>
-                        </Card>
-                    </div>
-                )}
 
                 {activeTab === 'progress' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3>Task Progress</h3>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                                {studentSubmissions.length} Tasks Submitted
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                        {/* Overall Progress Section */}
+                        <Card elevated>
+                            <h3>Overall Progress</h3>
+                            <div style={{ marginTop: 'var(--space-4)' }}>
+                                <DetailedStudentProgress studentId={student.id} />
                             </div>
+                        </Card>
+
+                        {/* Recent Submissions */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                                <h3>Recent Task Submissions</h3>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                    {studentSubmissions.length} Tasks Submitted
+                                </div>
+                            </div>
+
+                            {studentSubmissions.length === 0 ? (
+                                <div style={{ padding: 'var(--space-8)', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                                    <p style={{ color: 'var(--text-secondary)' }}>No tasks submitted yet.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+                                    {studentSubmissions.map((sub) => (
+                                        <Card key={sub.id} elevated style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <h4 style={{ margin: 0 }}>{sub.taskTitle || 'Unknown Task'}</h4>
+                                                    <span style={{
+                                                        fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px',
+                                                        background: sub.status === 'Verified' ? 'var(--color-success)' :
+                                                            sub.status === 'Graded' ? 'var(--color-brand-purple)' :
+                                                                sub.status === 'Pending Mark' ? 'var(--color-brand-orange)' : 'var(--bg-input)',
+                                                        color: sub.status === 'Pending Mark' ? 'var(--text-primary)' : 'white'
+                                                    }}>
+                                                        {sub.status}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                    Submitted: {new Date(sub.submittedAt).toLocaleDateString()}
+                                                    {sub.grade && ` • Grade: ${sub.grade}`}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => navigate(`/teacher/assessment/${sub.id}`)}
+                                                >
+                                                    View
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        if (window.confirm(`Are you sure you want to RESET "${sub.taskTitle}"? This will clear the grade and verification status, allowing the student to resubmit.`)) {
+                                                            await updateSubmission(sub.id, {
+                                                                status: 'Resubmission Required',
+                                                                grade: undefined,
+                                                                feedback: undefined,
+                                                                verifiedAt: undefined,
+                                                                verifiedBy: undefined,
+                                                                verificationRequested: false
+                                                            });
+                                                            alert('Task reset successfully.');
+                                                        }
+                                                    }}
+                                                    style={{ color: 'var(--color-error)' }}
+                                                >
+                                                    Reset
+                                                </Button>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-
-                        {studentSubmissions.length === 0 ? (
-                            <div style={{ padding: 'var(--space-8)', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
-                                <p style={{ color: 'var(--text-secondary)' }}>No tasks submitted yet.</p>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-                                {studentSubmissions.map((sub) => (
-                                    <Card key={sub.id} elevated style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                <h4 style={{ margin: 0 }}>{sub.taskTitle || 'Unknown Task'}</h4>
-                                                <span style={{
-                                                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px',
-                                                    background: sub.status === 'Verified' ? 'var(--color-success)' :
-                                                        sub.status === 'Graded' ? 'var(--color-brand-purple)' :
-                                                            sub.status === 'Pending Mark' ? 'var(--color-brand-orange)' : 'var(--bg-input)',
-                                                    color: sub.status === 'Pending Mark' ? 'var(--text-primary)' : 'white'
-                                                }}>
-                                                    {sub.status}
-                                                </span>
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                Submitted: {new Date(sub.submittedAt).toLocaleDateString()}
-                                                {sub.grade && ` • Grade: ${sub.grade}`}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => navigate(`/teacher/assessment/${sub.id}`)}
-                                            >
-                                                View
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={async () => {
-                                                    if (window.confirm(`Are you sure you want to RESET "${sub.taskTitle}"? This will clear the grade and verification status, allowing the student to resubmit.`)) {
-                                                        // Reset logic: Update status to 'Pending Mark' (or delete if prefer strict reset)
-                                                        // Request asked to "reset tasks for student to re-verify again"
-                                                        // This implies clearing the "Verified" / "Graded" status.
-                                                        await updateSubmission(sub.id, {
-                                                            status: 'Resubmission Required', // Set to Resubmission so they know they need to act, or just delete?
-                                                            grade: undefined,
-                                                            feedback: undefined,
-                                                            verifiedAt: undefined,
-                                                            verifiedBy: undefined,
-                                                            verificationRequested: false
-                                                        });
-                                                        alert('Task reset successfully.');
-                                                    }
-                                                }}
-                                                style={{ color: 'var(--color-error)' }}
-                                            >
-                                                Reset
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 )}
 

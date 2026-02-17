@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Achievement, StudentAchievement } from '../types/achievements';
 import { useUser } from './UserContext';
 import { supabase } from '../lib/supabase';
+import { useNotifications } from './NotificationContext';
 
 interface AchievementsContextType {
     achievements: Achievement[];
@@ -20,6 +21,7 @@ const AchievementsContext = createContext<AchievementsContextType | undefined>(u
 
 export const AchievementsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, addXp } = useUser();
+    const { triggerCelebration, createNotification } = useNotifications();
     const [achievements, setAchievements] = useState<Achievement[]>([]);
     const [studentAchievements, setStudentAchievements] = useState<Record<string, StudentAchievement[]>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -123,6 +125,27 @@ export const AchievementsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (studentId === user?.id) {
                 await addXp(achievement.xpValue || 0);
+
+                // Trigger celebration for current user
+                triggerCelebration({
+                    type: 'achievement_unlocked',
+                    title: 'Achievement Unlocked! 🏆',
+                    message: achievement.title,
+                    icon: achievement.icon || '🏆',
+                    color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    xpGained: achievement.xpValue || 0
+                });
+
+                // Create persistent notification
+                await createNotification(
+                    studentId,
+                    'Achievement Unlocked',
+                    `You unlocked: ${achievement.title}`,
+                    'achievement_unlocked',
+                    '/student/achievements',
+                    achievementId,
+                    'achievement'
+                );
             }
         }
     };

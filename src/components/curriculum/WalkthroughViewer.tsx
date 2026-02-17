@@ -3,7 +3,7 @@ import type { Walkthrough } from '../../types/ual';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw } from 'lucide-react';
-import Markdown from 'react-markdown';
+import RichTextViewer from '../common/RichTextViewer';
 
 interface WalkthroughViewerProps {
     walkthrough: Walkthrough;
@@ -135,7 +135,7 @@ const WalkthroughViewer: React.FC<WalkthroughViewerProps> = ({ walkthrough, onCo
                     )}
 
                     <div style={{ fontSize: '1.1rem', lineHeight: '1.6', color: 'var(--text-primary)' }}>
-                        <Markdown>{currentStep.content}</Markdown>
+                        <RichTextViewer content={currentStep.content} />
                     </div>
                 </div>
 

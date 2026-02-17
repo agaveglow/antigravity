@@ -7,10 +7,10 @@ import {
     BookOpen,
     AlertCircle,
     PlusCircle,
-    LayoutGrid,
     CheckCircle
 } from 'lucide-react';
 import WeeklyCalendarWidget from '../components/WeeklyCalendarWidget';
+import CohortProgressWidget from '../components/dashboard/CohortProgressWidget';
 import { useStudents } from '../context/StudentsContext';
 import { useCurriculum } from '../context/CurriculumContext';
 import { useSubmissions } from '../context/SubmissionContext';
@@ -60,6 +60,37 @@ const TeacherDashboard: React.FC = () => {
         },
     ];
 
+    const renderActionCard = (action: any) => (
+        <Card
+            key={action.name}
+            onClick={() => navigate(action.path)}
+            style={{
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: '1px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                height: '100%'
+            }}
+            className="hover-card"
+            elevated
+        >
+            <div style={{
+                width: '48px', height: '48px', borderRadius: '12px',
+                background: `${action.color}15`, color: action.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0
+            }}>
+                {action.icon}
+            </div>
+            <div>
+                <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '4px' }}>{action.name}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>{action.desc}</div>
+            </div>
+        </Card>
+    );
+
     return (
         <div style={{ paddingBottom: 'var(--space-12)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
@@ -74,7 +105,26 @@ const TeacherDashboard: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Key Stats Row */}
+            {/* Top Section: Quick Actions - Progress Widget - Quick Actions */}
+            <div className="dashboard-top-grid">
+                {/* Left Actions */}
+                <div className="quick-actions-col">
+                    {quickActions.slice(0, 2).map(renderActionCard)}
+                </div>
+
+                {/* Center Widget */}
+                {/* Using a wrapper to ensure height matches */}
+                <div style={{ height: '100%' }}>
+                    <CohortProgressWidget />
+                </div>
+
+                {/* Right Actions */}
+                <div className="quick-actions-col">
+                    {quickActions.slice(2, 4).map(renderActionCard)}
+                </div>
+            </div>
+
+            {/* Key Stats Row (Moved Below) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-10)' }}>
                 <Card elevated style={{ position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
@@ -98,78 +148,36 @@ const TeacherDashboard: React.FC = () => {
                     </div>
                 </Card>
 
-
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-8)' }}>
-                {/* Left Column: Quick Actions & Calendar */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-
-                    {/* Quick Actions Grid */}
-                    <div>
-                        <h3 style={{ margin: '0 0 var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <LayoutGrid size={20} /> {t('teacher.dashboard.quickActions')}
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-                            {quickActions.map(action => (
-                                <Card
-                                    key={action.name}
-                                    onClick={() => navigate(action.path)}
-                                    style={{
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        border: '1px solid transparent'
-                                    }}
-                                    className="hover-card"
-                                    elevated
-                                >
-                                    <div style={{
-                                        width: '48px', height: '48px', borderRadius: '12px',
-                                        background: `${action.color}15`, color: action.color,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        marginBottom: '12px'
-                                    }}>
-                                        {action.icon}
-                                    </div>
-                                    <div style={{ fontWeight: 600, fontSize: '1rem' }}>{action.name}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{action.desc}</div>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Weekly Calendar */}
-                    <div>
-                        <WeeklyCalendarWidget />
-                    </div>
-
-                </div>
-
-                {/* Right Column: Notifications / QA (Simplified) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-
-
-                    {pendingAssessments > 5 && (
-                        <Card elevated style={{ background: 'rgba(255, 171, 0, 0.05)', border: '1px solid rgba(255, 171, 0, 0.2)' }}>
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                <AlertCircle size={20} color="var(--color-warning)" />
-                                <div>
-                                    <h4 style={{ margin: '0 0 4px', color: 'var(--color-warning)' }}>{t('teacher.dashboard.markingBacklog')}</h4>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                        {t('teacher.dashboard.backlogMessage')}
-                                    </p>
+                {/* Conditional Marking Backlog Card as 3rd Stat Card */}
+                {pendingAssessments > 0 && (
+                    <Card elevated style={{ position: 'relative', overflow: 'hidden', border: '1px solid rgba(255, 171, 0, 0.3)', background: 'rgba(255, 171, 0, 0.05)' }}>
+                        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning)', marginBottom: 'var(--space-2)' }}>
+                                    <AlertCircle size={20} />
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>{t('teacher.dashboard.markingBacklog')}</span>
                                 </div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1, color: 'var(--color-warning)' }}>{pendingAssessments}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t('teacher.dashboard.qa.pending')}</div>
                             </div>
                             <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                style={{ marginTop: 'var(--space-4)', width: '100%', borderColor: 'rgba(255, 171, 0, 0.3)' }}
                                 onClick={() => navigate('/teacher/assessment')}
+                                style={{ marginTop: 'auto', alignSelf: 'flex-start', paddingLeft: 0, color: 'var(--color-warning)' }}
                             >
-                                {t('teacher.dashboard.goToGrading')}
+                                {t('teacher.dashboard.goToGrading')} <CheckCircle size={14} style={{ marginLeft: '6px' }} />
                             </Button>
-                        </Card>
-                    )}
+                        </div>
+                    </Card>
+                )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-8)', marginTop: 'var(--space-12)' }}>
+                {/* Weekly Calendar - Full Width now since actions are moved */}
+                <div>
+                    {/* Can be full width or maybe keep it side-by-side with something else later */}
+                    <WeeklyCalendarWidget />
                 </div>
             </div>
 
@@ -178,6 +186,36 @@ const TeacherDashboard: React.FC = () => {
                     transform: translateY(-2px);
                     box-shadow: var(--shadow-md);
                     border-color: var(--color-brand-blue) !important;
+                }
+
+                .dashboard-top-grid {
+                    display: grid;
+                    grid-template-columns: minmax(280px, 1fr) 1.2fr minmax(280px, 1fr);
+                    gap: var(--space-6);
+                    margin-bottom: var(--space-8);
+                    align-items: stretch;
+                }
+
+                .quick-actions-col {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-6);
+                }
+
+                @media (max-width: 1100px) {
+                    .dashboard-top-grid {
+                        grid-template-columns: 1fr;
+                        gap: var(--space-4);
+                    }
+                    /* Move widget to top */
+                    .dashboard-top-grid > :nth-child(2) { order: -1; }
+                    
+                    /* 2x2 Grid for Action Columns on Mobile */
+                    .quick-actions-col {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: var(--space-4);
+                    }
                 }
             `}</style>
         </div>

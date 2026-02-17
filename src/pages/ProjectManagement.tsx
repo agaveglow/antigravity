@@ -13,6 +13,8 @@ import {
     Filter,
     Search,
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
     BookOpen,
     Edit3,
     Plus,
@@ -38,9 +40,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { parseProjectBrief } from '../utils/ualParser';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
+import RichTextEditor from '../components/common/RichTextEditor';
+import RichTextViewer from '../components/common/RichTextViewer';
 
 const ProjectManagement: React.FC = () => {
-    const { projects, deleteProject, updateProject, isLoading, addProject } = useCurriculum();
+    const { projects, deleteProject, updateProject, reorderProject, isLoading, addProject } = useCurriculum();
     const { students } = useStudents();
     const { submissions } = useSubmissions();
     const navigate = useNavigate();
@@ -64,12 +68,14 @@ const ProjectManagement: React.FC = () => {
     const managingProject = projects.find(p => p.id === managingProjectId);
     const trackingProject = projects.find(p => p.id === trackingProjectId);
 
-    const filteredProjects = projects.filter(p => {
-        const matchesCohort = selectedLevel === 'All' || p.cohort === selectedLevel;
-        const matchesSearch = (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.unit || '').toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesCohort && matchesSearch;
-    });
+    const filteredProjects = projects
+        .filter(p => {
+            const matchesCohort = selectedLevel === 'All' || p.cohort === selectedLevel;
+            const matchesSearch = (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.unit || '').toLowerCase().includes(searchTerm.toLowerCase());
+            return matchesCohort && matchesSearch;
+        })
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     const getProjectStats = (project: ProjectBrief) => {
         // Count eligible students based on Cohort
@@ -407,6 +413,18 @@ const ProjectManagement: React.FC = () => {
                                     </div>
 
                                     <h3 style={{ margin: '0 0 var(--space-2)', fontSize: '1.25rem' }}>{project.title}</h3>
+                                    <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>{project.cohort}</span>
+                                        {project.subject && <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>{project.subject === 'music' ? 'Music' : 'Performing Arts'}</span>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--space-2)' }}>
+                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); reorderProject(project.id, 'up'); }} disabled={filteredProjects.indexOf(project) === 0} style={{ padding: '4px' }}>
+                                            <ChevronUp size={16} />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); reorderProject(project.id, 'down'); }} disabled={filteredProjects.indexOf(project) === filteredProjects.length - 1} style={{ padding: '4px' }}>
+                                            <ChevronDown size={16} />
+                                        </Button>
+                                    </div>
                                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--space-4)', flexGrow: 1 }}>
                                         {project.unit}
                                     </p>
@@ -565,6 +583,18 @@ const ProjectManagement: React.FC = () => {
                                                 </select>
                                             </div>
                                             <div>
+                                                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Subject</label>
+                                                <select
+                                                    value={preview?.subject || ''}
+                                                    onChange={(e) => preview && setPreview({ ...preview, subject: e.target.value as any })}
+                                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                                                >
+                                                    <option value="">All Subjects</option>
+                                                    <option value="music">Music</option>
+                                                    <option value="performing_arts">Performing Arts</option>
+                                                </select>
+                                            </div>
+                                            <div>
                                                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <BookOpen size={12} /> Units Covered
                                                 </label>
@@ -644,16 +674,11 @@ const ProjectManagement: React.FC = () => {
 
                                                 <div>
                                                     <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>Description</label>
-                                                    <textarea
+                                                    <RichTextEditor
                                                         value={task.description}
-                                                        onChange={(e) => updateTask(task.id, { description: e.target.value })}
-                                                        placeholder={t('teacher.ingestion.taskDesc')}
-                                                        style={{
-                                                            width: '100%', minHeight: '80px', padding: '12px',
-                                                            background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)',
-                                                            borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
-                                                            fontSize: '0.9rem', lineHeight: 1.5, marginTop: '4px'
-                                                        }}
+                                                        onChange={(value) => updateTask(task.id, { description: value })}
+                                                        height="150px"
+                                                        placeholder="Describe what students need to do for this task..."
                                                     />
                                                 </div>
 
@@ -755,6 +780,7 @@ function ProjectEditOverlay({ project, onClose, onSave }: ProjectEditOverlayProp
         title: project.title,
         unit: project.unit,
         cohort: project.cohort,
+        subject: project.subject,
         deadline: project.deadline || '',
         gradingScheme: project.gradingScheme || 'Distinction',
         xpReward: project.xpReward,
@@ -883,6 +909,18 @@ function ProjectEditOverlay({ project, onClose, onSave }: ProjectEditOverlayProp
                                         <option value="Level 3B">{t('teacher.students.level3b')}</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Subject</label>
+                                    <select
+                                        value={metadata.subject || ''}
+                                        onChange={(e) => setMetadata({ ...metadata, subject: e.target.value as any })}
+                                        style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontWeight: 500 }}
+                                    >
+                                        <option value="">All Subjects</option>
+                                        <option value="music">Music</option>
+                                        <option value="performing_arts">Performing Arts</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>{t('teacher.projects.overlay.deadline')}</label>
@@ -950,22 +988,12 @@ function ProjectEditOverlay({ project, onClose, onSave }: ProjectEditOverlayProp
                                                     fontWeight: 600
                                                 }}
                                             />
-                                            <textarea
+                                            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>{t('teacher.projects.overlay.description')}</label>
+                                            <RichTextEditor
                                                 value={task.description}
-                                                onChange={(e) => handleUpdateTask(task.id, { description: e.target.value })}
-                                                placeholder="Description"
-                                                style={{
-                                                    width: '100%',
-                                                    minHeight: '100px',
-                                                    padding: '12px',
-                                                    background: 'var(--bg-input)',
-                                                    border: '1px solid var(--border-color)',
-                                                    borderRadius: '8px',
-                                                    color: 'var(--text-primary)',
-                                                    resize: 'vertical',
-                                                    fontSize: '0.9rem',
-                                                    lineHeight: 1.5
-                                                }}
+                                                onChange={(value) => handleUpdateTask(task.id, { description: value })}
+                                                height="180px"
+                                                placeholder="Describe what students need to do for this task..."
                                             />
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                                                 <div>
@@ -1053,7 +1081,9 @@ function ProjectEditOverlay({ project, onClose, onSave }: ProjectEditOverlayProp
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div style={{ flex: 1, marginRight: 'var(--space-4)' }}>
                                                 <h4 style={{ margin: '0 0 4px', fontSize: '1.05rem' }}>{index + 1}. {task.title}</h4>
-                                                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{task.description.substring(0, 100)}{task.description.length > 100 ? '...' : ''}</p>
+                                                <div style={{ fontSize: '0.9rem', lineHeight: 1.4, maxHeight: '60px', overflow: 'hidden' }}>
+                                                    <RichTextViewer content={task.description} />
+                                                </div>
                                                 <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '12px', flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '4px', color: 'var(--color-brand-cyan)' }}>{task.xpReward} XP</span>
                                                     {(task.dowdBucksReward || 0) > 0 && (

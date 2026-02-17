@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import type { Walkthrough, WalkthroughStep } from '../../types/ual';
 import Button from '../common/Button';
 import { Plus, Trash2, MoveUp, MoveDown, Image as ImageIcon, Video, Save, Upload } from 'lucide-react';
+import RichTextEditor from '../common/RichTextEditor';
 
 interface WalkthroughEditorProps {
     initialData?: Partial<Walkthrough>;
     onSave: (walkthrough: Walkthrough) => void;
     onCancel: () => void;
     courseId?: string;
+    moduleId?: string;
 }
 
-const WalkthroughEditor: React.FC<WalkthroughEditorProps> = ({ initialData, onSave, onCancel, courseId }) => {
+const WalkthroughEditor: React.FC<WalkthroughEditorProps> = ({ initialData, onSave, onCancel, courseId, moduleId }) => {
     const [title, setTitle] = useState(initialData?.title || '');
     const [description, setDescription] = useState(initialData?.description || '');
     const [xpReward, setXpReward] = useState(initialData?.xpReward || 50);
@@ -50,6 +52,7 @@ const WalkthroughEditor: React.FC<WalkthroughEditorProps> = ({ initialData, onSa
         const walkthrough: Walkthrough = {
             id: initialData?.id || Math.random().toString(36).substr(2, 9),
             courseId: initialData?.courseId || courseId || '',
+            moduleId: initialData?.moduleId || moduleId,
             title,
             description,
             steps,
@@ -143,16 +146,14 @@ const WalkthroughEditor: React.FC<WalkthroughEditorProps> = ({ initialData, onSa
                                 </div>
                             </div>
 
-                            <textarea
-                                value={step.content}
-                                onChange={e => handleUpdateStep(step.id, { content: e.target.value })}
-                                placeholder="Step instructions (Markdown supported)..."
-                                rows={3}
-                                style={{
-                                    width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)',
-                                    background: 'var(--bg-input)', color: 'var(--text-primary)', marginBottom: '1rem', fontFamily: 'monospace'
-                                }}
-                            />
+                            <div style={{ marginBottom: '1rem' }}>
+                                <RichTextEditor
+                                    value={step.content}
+                                    onChange={(newContent: string) => handleUpdateStep(step.id, { content: newContent })}
+                                    placeholder="Step instructions..."
+                                    height="150px"
+                                />
+                            </div>
 
                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                 <div style={{ flex: 1 }}>

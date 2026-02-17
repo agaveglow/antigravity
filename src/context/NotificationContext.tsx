@@ -1,8 +1,21 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useUser } from './UserContext';
+import type { CelebrationData } from '../types/notifications';
 
-export type NotificationType = 'info' | 'warning' | 'success' | 'deadline' | 'verification';
+export type NotificationType =
+    | 'info'
+    | 'warning'
+    | 'success'
+    | 'deadline'
+    | 'verification'
+    | 'task_verified'
+    | 'project_completed'
+    | 'achievement_unlocked'
+    | 'badge_earned'
+    | 'course_completed'
+    | 'module_completed'
+    | 'stage_completed';
 
 export interface Notification {
     id: string;
@@ -11,6 +24,8 @@ export interface Notification {
     message: string;
     type: NotificationType;
     link?: string;
+    entityId?: string;
+    entityType?: string;
     isRead: boolean;
     createdAt: string;
 }
@@ -19,10 +34,13 @@ interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
     loading: boolean;
+    celebrationQueue: CelebrationData[];
     markAsRead: (id: string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
-    createNotification: (userId: string, title: string, message: string, type: NotificationType, link?: string) => Promise<void>;
+    createNotification: (userId: string, title: string, message: string, type: NotificationType, link?: string, entityId?: string, entityType?: string) => Promise<void>;
     deleteNotification: (id: string) => Promise<void>;
+    triggerCelebration: (data: CelebrationData) => void;
+    dismissCelebration: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -31,6 +49,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { user } = useUser();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [celebrationQueue, setCelebrationQueue] = useState<CelebrationData[]>([]);
 
     useEffect(() => {
         if (!user) {
@@ -67,6 +86,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         message: data.message,
         type: data.type,
         link: data.link,
+        entityId: data.entity_id,
+        entityType: data.entity_type,
         isRead: data.is_read,
         createdAt: data.created_at
     });
@@ -123,7 +144,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     };
 
-    const createNotification = async (userId: string, title: string, message: string, type: NotificationType, link?: string) => {
+    const createNotification = async (userId: string, title: string, message: string, type: NotificationType, link?: string, entityId?: string, entityType?: string) => {
         try {
             const { error } = await supabase
                 .from('notifications')
@@ -132,7 +153,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     title,
                     message,
                     type,
-                    link
+                    link,
+                    entity_id: entityId,
+                    entity_type: entityType
                 });
 
             if (error) throw error;
@@ -159,10 +182,29 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     };
 
+    const triggerCelebration = (data: CelebrationData) => {
+        setCelebrationQueue(prev => [...prev, data]);
+    };
+
+    const dismissCelebration = () => {
+        setCelebrationQueue(prev => prev.slice(1));
+    };
+
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, loading, markAsRead, markAllAsRead, createNotification, deleteNotification }}>
+        <NotificationContext.Provider value={{
+            notifications,
+            unreadCount,
+            loading,
+            celebrationQueue,
+            markAsRead,
+            markAllAsRead,
+            createNotification,
+            deleteNotification,
+            triggerCelebration,
+            dismissCelebration
+        }}>
             {children}
         </NotificationContext.Provider>
     );

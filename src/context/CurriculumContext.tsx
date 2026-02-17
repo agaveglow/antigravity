@@ -10,6 +10,7 @@ interface CurriculumContextType {
     addProject: (project: ProjectBrief) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
     updateProject: (id: string, updates: Partial<ProjectBrief>) => Promise<void>;
+    reorderProject: (id: string, direction: 'up' | 'down') => Promise<void>;
     addEvent: (event: CalendarEvent) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
@@ -33,7 +34,7 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             try {
                 // Fetch projects and tasks separately to avoid join errors (400)
                 const [projectsRes, tasksRes] = await Promise.all([
-                    supabase.from('curriculum_projects').select('*'),
+                    supabase.from('curriculum_projects').select('*').order('order_index', { ascending: true }),
                     supabase.from('curriculum_tasks').select('*')
                 ]);
 
@@ -71,6 +72,7 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         title: p.title || 'Untitled',
                         unit: p.unit || '',
                         cohort: p.cohort as UALCohort,
+                        subject: p.subject,
                         introduction: p.introduction || '',
                         scenario: p.scenario || '',
                         tasks: projectTasks,
@@ -81,7 +83,8 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         gradingScheme: p.grading_scheme || p.gradingScheme || 'Pass/Fail',
                         imageUrl: p.image_url || p.imageUrl,
                         xpReward: p.xp_reward || p.xpReward || 0,
-                        dowdBucksReward: p.dowd_bucks_reward || p.dowdBucksReward || 0
+                        dowdBucksReward: p.dowd_bucks_reward || p.dowdBucksReward || 0,
+                        order: p.order_index ?? p.order ?? 0
                     };
                 });
 
@@ -325,6 +328,8 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (projectData.gradingScheme !== undefined) dbProject.grading_scheme = projectData.gradingScheme;
         if (projectData.xpReward !== undefined) dbProject.xp_reward = projectData.xpReward;
         if (projectData.dowdBucksReward !== undefined) dbProject.dowd_bucks_reward = projectData.dowdBucksReward;
+        if (projectData.subject !== undefined) dbProject.subject = projectData.subject;
+        if (projectData.order !== undefined) dbProject.order_index = projectData.order;
 
         if (Object.keys(dbProject).length > 0) {
             let currentPayload = { ...dbProject };
@@ -472,6 +477,42 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const getProjectById = (id: string) => projects.find(p => p.id === id);
 
+    const reorderProject = async (id: string, direction: 'up' | 'down') => {
+        const sortedProjects = [...projects].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const currentIndex = sortedProjects.findIndex(p => p.id === id);
+        if (currentIndex === -1) return;
+
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= sortedProjects.length) return;
+
+        // Move item
+        const [moved] = sortedProjects.splice(currentIndex, 1);
+        sortedProjects.splice(targetIndex, 0, moved);
+
+        // Re-index ALL items
+        const updatedProjects = sortedProjects.map((p, index) => ({ ...p, order: index }));
+
+        // Optimistic update
+        setProjects(updatedProjects);
+
+        // Persist to database
+        try {
+            await Promise.all(
+                updatedProjects.map(p =>
+                    supabase
+                        .from('curriculum_projects')
+                        .update({ order_index: p.order })
+                        .eq('id', p.id)
+                )
+            );
+        } catch (error: any) {
+            console.error('Error reordering projects:', error);
+            alert(`Failed to save project order: ${error.message}`);
+            // Revert on error
+            setProjects(projects);
+        }
+    };
+
     return (
         <CurriculumContext.Provider value={{
             projects,
@@ -481,6 +522,7 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             addProject,
             deleteProject,
             updateProject,
+            reorderProject,
             addEvent,
             deleteEvent,
             updateEvent,

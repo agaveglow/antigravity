@@ -2,27 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useUser } from './UserContext';
 
-export type StudentStatus = 'Active' | 'At Risk' | 'Inactive' | 'Invite Pending';
+import type { Student, StudentStatus } from '../types/student';
 
-export interface Student {
-    id: string;
-    name: string;
-    cohort: 'Level 2' | 'Level 3A' | 'Level 3B';
-    status: StudentStatus;
-    username: string;
-    password?: string;
-    email?: string;
-    phone?: string;
-    dob?: string;
-    address?: string;
-    avatar?: string;
-    xp?: number;
-    balance?: number;
-    department?: 'music' | 'performing_arts'; // Added
-    predicted_grade?: string;
-    grades?: any[]; // Should mapping to a table eventually
-    notes?: any[]; // Should mapping to a table eventually
-}
+// Re-export for compatibility
+export type { Student, StudentStatus };
 
 interface StudentsContextType {
     students: Student[];
@@ -127,6 +110,9 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (error) {
             console.error('Error adding student:', error);
             setStudents(prev => prev.filter(s => s.id !== student.id));
+            if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                alert(`The username '${student.username}' is already taken.`);
+            }
         }
     };
 
@@ -164,7 +150,11 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (error: any) {
             console.error('Error creating student:', error);
             setStudents(prev => prev.filter(s => s.id !== tempId));
-            alert(`Failed to create student: ${error.message}`);
+            if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                alert(`The username '${username}' is already taken. Please choose a different one.`);
+            } else {
+                alert(`Failed to create student: ${error.message}`);
+            }
         }
     };
 
@@ -183,7 +173,11 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
                 if (error) {
                     console.error('Error updating student credentials:', error);
-                    alert(`Failed to update credentials: ${error.message}`);
+                    if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                        alert(`The username '${updates.username || student.username}' is already taken. Please choose a different one.`);
+                    } else {
+                        alert(`Failed to update credentials: ${error.message}`);
+                    }
                     return;
                 }
             }

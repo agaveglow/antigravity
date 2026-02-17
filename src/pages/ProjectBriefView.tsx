@@ -9,6 +9,7 @@ import {
     ChevronLeft, Circle, FileText, CheckCircle2,
     Clock, PlayCircle
 } from 'lucide-react';
+import RichTextViewer from '../components/common/RichTextViewer';
 
 import { useLanguage } from '../context/LanguageContext';
 
@@ -68,9 +69,9 @@ const ProjectBriefView: React.FC = () => {
 
                         <div style={{ marginTop: 'var(--space-8)' }}>
                             <h3 style={{ marginBottom: 'var(--space-3)' }}>{t('project.scenario')}</h3>
-                            <p style={{ lineHeight: 1.7, color: 'var(--text-primary)' }}>
-                                {project.scenario}
-                            </p>
+                            <div style={{ lineHeight: 1.7, color: 'var(--text-primary)' }}>
+                                <RichTextViewer content={project.scenario} />
+                            </div>
                         </div>
                     </Card>
 
@@ -131,7 +132,9 @@ const ProjectBriefView: React.FC = () => {
                             {project.learningOutcomes.map(lo => (
                                 <div key={lo.id} style={{ fontSize: '0.9rem' }}>
                                     <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{lo.id}</div>
-                                    <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>{lo.description}</div>
+                                    <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        <RichTextViewer content={lo.description} />
+                                    </div>
                                 </div>
                             ))}
                         </div>

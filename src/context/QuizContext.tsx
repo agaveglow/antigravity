@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Quiz, Course, Lesson, Walkthrough } from '../types/ual';
+import type { Quiz, Course, Lesson, Walkthrough, Stage, Module } from '../types/ual';
 import { useUser } from './UserContext';
 import { supabase } from '../lib/supabase';
+import { useNotifications } from './NotificationContext';
 
 interface QuizContextType {
     quizzes: Quiz[];
@@ -13,10 +14,20 @@ interface QuizContextType {
     completedQuizzes: string[];
     reorderQuiz: (id: string, direction: 'up' | 'down') => Promise<void>;
     courses: Course[];
-    addCourse: (course: Course) => Promise<void>;
-    updateCourse: (id: string, updates: Partial<Course>) => Promise<void>;
+    addCourse: (course: Course) => Promise<{ success: boolean; error?: string }>;
+    updateCourse: (id: string, updates: Partial<Course>) => Promise<{ success: boolean; error?: string }>;
     deleteCourse: (id: string, deleteQuizzes?: boolean) => Promise<void>;
     reorderCourse: (id: string, direction: 'up' | 'down') => Promise<void>;
+    stages: Stage[];
+    addStage: (stage: Stage) => Promise<boolean>;
+    updateStage: (id: string, updates: Partial<Stage>) => Promise<boolean>;
+    deleteStage: (id: string) => Promise<void>;
+    reorderStage: (id: string, direction: 'up' | 'down') => Promise<void>;
+    modules: Module[];
+    addModule: (module: Module) => Promise<boolean>;
+    updateModule: (id: string, updates: Partial<Module>) => Promise<boolean>;
+    deleteModule: (id: string) => Promise<void>;
+    reorderModule: (id: string, direction: 'up' | 'down') => Promise<void>;
     lessons: Lesson[];
     addLesson: (lesson: Lesson) => Promise<void>;
     updateLesson: (id: string, updates: Partial<Lesson>) => Promise<void>;
@@ -36,12 +47,15 @@ const QuizContext = createContext<QuizContextType | undefined>(undefined);
 
 export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, addXp } = useUser();
+    const { triggerCelebration, createNotification } = useNotifications();
 
     // --- State ---
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
+    const [stages, setStages] = useState<Stage[]>([]);
+    const [modules, setModules] = useState<Module[]>([]);
     const [lessons, setLessons] = useState<Lesson[]>([]);
-    const [walkthroughs] = useState<Walkthrough[]>([]);
+    const [walkthroughs, setWalkthroughs] = useState<Walkthrough[]>([]);
     const [completedQuizzes, setCompletedQuizzes] = useState<string[]>([]);
     const [completedLessons, setCompletedLessons] = useState<string[]>([]);
     const [completedWalkthroughs, setCompletedWalkthroughs] = useState<string[]>([]);
@@ -69,6 +83,14 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else if (coursesData) {
                 setCourses(coursesData.map((c: any) => ({ ...c, order: c.order_index })));
             }
+
+            // Load Stages
+            const { data: stagesData } = await supabase.from('stages').select('*').order('order_index');
+            if (stagesData) setStages(stagesData.map((s: any) => ({ ...s, order: s.order_index })));
+
+            // Load Modules
+            const { data: modulesData } = await supabase.from('modules').select('*').order('order_index');
+            if (modulesData) setModules(modulesData.map((m: any) => ({ ...m, order: m.order_index })));
 
             // Load Lessons
             const { data: lessonsData, error: lessonsError } = await supabase
@@ -142,6 +164,19 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!error) {
             setCompletedQuizzes(prev => [...prev, quizId]);
             await addXp(quiz.xpReward);
+
+            // Trigger celebration
+            triggerCelebration({
+                type: 'course_completed',
+                title: 'Quiz Completed! 📝',
+                message: quiz.title,
+                icon: '✅',
+                color: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                xpGained: quiz.xpReward
+            });
+
+            // Check for module/stage/course completion
+            await checkHierarchyCompletion(quiz.moduleId, quiz.courseId);
         }
     };
 
@@ -159,6 +194,19 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!error) {
             setCompletedLessons(prev => [...prev, lessonId]);
             await addXp(lesson.xpReward);
+
+            // Trigger celebration
+            triggerCelebration({
+                type: 'course_completed',
+                title: 'Lesson Completed! 📖',
+                message: lesson.title,
+                icon: '✅',
+                color: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                xpGained: lesson.xpReward
+            });
+
+            // Check for module/stage/course completion
+            await checkHierarchyCompletion(lesson.moduleId, lesson.courseId);
         }
     };
 
@@ -175,23 +223,183 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!error) {
             setCompletedWalkthroughs(prev => [...prev, walkthroughId]);
-            await addXp(walkthrough.xpReward);
+            await addXp(walkthrough.xpReward || 0);
+
+            // Trigger celebration
+            triggerCelebration({
+                type: 'course_completed',
+                title: 'Walkthrough Completed! 🎬',
+                message: walkthrough.title,
+                icon: '✅',
+                color: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+                xpGained: walkthrough.xpReward || 0
+            });
+
+            // Check for module/stage/course completion
+            await checkHierarchyCompletion(walkthrough.moduleId, walkthrough.courseId);
+        }
+    };
+
+    // Helper function to check if module/stage/course is completed
+    const checkHierarchyCompletion = async (moduleId?: string, courseId?: string) => {
+        if (!user) return;
+
+        // Check module completion
+        if (moduleId) {
+            const module = modules.find(m => m.id === moduleId);
+            if (module) {
+                const moduleContent = [
+                    ...quizzes.filter(q => q.moduleId === moduleId),
+                    ...lessons.filter(l => l.moduleId === moduleId),
+                    ...walkthroughs.filter(w => w.moduleId === moduleId)
+                ];
+
+                const allCompleted = moduleContent.every(content => {
+                    if ('xpReward' in content && quizzes.some(q => q.id === content.id)) {
+                        return completedQuizzes.includes(content.id);
+                    }
+                    if ('xpReward' in content && lessons.some(l => l.id === content.id)) {
+                        return completedLessons.includes(content.id);
+                    }
+                    if ('xpReward' in content && walkthroughs.some(w => w.id === content.id)) {
+                        return completedWalkthroughs.includes(content.id);
+                    }
+                    return false;
+                });
+
+                if (allCompleted && moduleContent.length > 0) {
+                    triggerCelebration({
+                        type: 'module_completed',
+                        title: 'Module Completed! 📖',
+                        message: module.title,
+                        icon: '⭐',
+                        color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        xpGained: 100
+                    });
+
+                    await createNotification(
+                        user.id,
+                        'Module Completed',
+                        `You completed: ${module.title}`,
+                        'module_completed',
+                        `/student/courses/${courseId}`,
+                        moduleId,
+                        'module'
+                    );
+
+                    // Check stage completion
+                    const stage = stages.find(s => s.id === module.stageId);
+                    if (stage) {
+                        const stageModules = modules.filter(m => m.stageId === stage.id);
+                        const allStageModulesCompleted = stageModules.every(m => {
+                            const modContent = [
+                                ...quizzes.filter(q => q.moduleId === m.id),
+                                ...lessons.filter(l => l.moduleId === m.id),
+                                ...walkthroughs.filter(w => w.moduleId === m.id)
+                            ];
+                            return modContent.every(c => {
+                                if (quizzes.some(q => q.id === c.id)) return completedQuizzes.includes(c.id);
+                                if (lessons.some(l => l.id === c.id)) return completedLessons.includes(c.id);
+                                if (walkthroughs.some(w => w.id === c.id)) return completedWalkthroughs.includes(c.id);
+                                return false;
+                            });
+                        });
+
+                        if (allStageModulesCompleted && stageModules.length > 0) {
+                            triggerCelebration({
+                                type: 'stage_completed',
+                                title: 'Stage Completed! 🌟',
+                                message: stage.title,
+                                icon: '🎯',
+                                color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                xpGained: 250
+                            });
+
+                            await createNotification(
+                                user.id,
+                                'Stage Completed',
+                                `You completed: ${stage.title}`,
+                                'stage_completed',
+                                `/student/courses/${courseId}`,
+                                stage.id,
+                                'stage'
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check course completion
+        if (courseId) {
+            const course = courses.find(c => c.id === courseId);
+            if (course) {
+                const courseStages = stages.filter(s => s.courseId === courseId);
+                const allStagesCompleted = courseStages.every(stage => {
+                    const stageModules = modules.filter(m => m.stageId === stage.id);
+                    return stageModules.every(m => {
+                        const modContent = [
+                            ...quizzes.filter(q => q.moduleId === m.id),
+                            ...lessons.filter(l => l.moduleId === m.id),
+                            ...walkthroughs.filter(w => w.moduleId === m.id)
+                        ];
+                        return modContent.every(c => {
+                            if (quizzes.some(q => q.id === c.id)) return completedQuizzes.includes(c.id);
+                            if (lessons.some(l => l.id === c.id)) return completedLessons.includes(c.id);
+                            if (walkthroughs.some(w => w.id === c.id)) return completedWalkthroughs.includes(c.id);
+                            return false;
+                        });
+                    });
+                });
+
+                if (allStagesCompleted && courseStages.length > 0) {
+                    triggerCelebration({
+                        type: 'course_completed',
+                        title: 'Course Completed! 🎓',
+                        message: course.title,
+                        icon: '🏆',
+                        color: 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)',
+                        xpGained: 500
+                    });
+
+                    await createNotification(
+                        user.id,
+                        'Course Completed',
+                        `You completed: ${course.title}`,
+                        'course_completed',
+                        `/student/courses`,
+                        courseId,
+                        'course'
+                    );
+                }
+            }
         }
     };
 
     // --- Mutators (Teachers) ---
-    const addCourse = async (course: Course) => {
+    const addCourse = async (course: Course): Promise<{ success: boolean; error?: string }> => {
         const { id, order, ...data } = course;
         setCourses(prev => [...prev, course]);
 
-        let currentPayload: any = { ...data, order_index: order };
+        // Include ID in payload to ensure client-side ID matches server-side ID
+        // Map camelCase to snake_case
+        const { createdAt, imageUrl, ...rest } = data;
+        let currentPayload: any = {
+            ...rest,
+            id,
+            order_index: order,
+            created_at: createdAt,
+            image_url: imageUrl
+        };
         let success = false;
         let attempts = 0;
+        let lastError: any = null;
 
         while (!success && attempts < 5) {
             const { error } = await supabase.from('courses').insert(currentPayload);
             if (error) {
                 console.error(`QuizContext: Add course attempt ${attempts + 1} failed:`, error.message);
+                lastError = error;
                 if (error.code === 'PGRST204' || error.message?.includes('column')) {
                     const match = error.message.match(/column ['"](.+)['"]/);
                     const missingColumn = match ? match[1] : null;
@@ -205,24 +413,33 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 console.error('Error adding course:', error);
                 setCourses(prev => prev.filter(c => c.id !== id));
-                break;
+                return { success: false, error: lastError?.message || 'Unknown error' };
             }
             success = true;
         }
+        return { success: true };
     };
 
-    const updateCourse = async (id: string, updates: Partial<Course>) => {
+    const updateCourse = async (id: string, updates: Partial<Course>): Promise<{ success: boolean; error?: string }> => {
         const originalCourse = courses.find(c => c.id === id);
         setCourses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
 
-        let currentPayload: any = { ...updates };
+        setCourses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+
+        const { createdAt, imageUrl, order, ...rest } = updates;
+        let currentPayload: any = { ...rest };
+        if (order !== undefined) currentPayload.order_index = order;
+        if (createdAt !== undefined) currentPayload.created_at = createdAt;
+        if (imageUrl !== undefined) currentPayload.image_url = imageUrl;
         let success = false;
         let attempts = 0;
+        let lastError: any = null;
 
         while (!success && attempts < 5) {
             const { error } = await supabase.from('courses').update(currentPayload).eq('id', id);
             if (error) {
                 console.error(`QuizContext: Update course attempt ${attempts + 1} failed:`, error.message);
+                lastError = error;
                 if (error.code === 'PGRST204' || error.message?.includes('column')) {
                     const match = error.message.match(/column ['"](.+)['"]/);
                     const missingColumn = match ? match[1] : null;
@@ -236,10 +453,11 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 console.error('Error updating course:', error);
                 if (originalCourse) setCourses(prev => prev.map(c => c.id === id ? originalCourse : c));
-                break;
+                return { success: false, error: lastError?.message || 'Unknown error' };
             }
             success = true;
         }
+        return { success: true };
     };
 
     const deleteCourse = async (id: string) => {
@@ -252,26 +470,347 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    // Quizzes & Lessons Reordering / Addition would go here mapping to DB...
-    // To keep it simple for this first pass, I'll stub the rest with async.
+    // --- Stages & Modules CRUD ---
+    const addStage = async (stage: Stage): Promise<boolean> => {
+        const { id, order, createdAt, courseId, ...data } = stage;
+        setStages(prev => [...prev, stage]);
+        const { error } = await supabase.from('stages').insert({
+            ...data,
+            id,
+            course_id: courseId,
+            order_index: order,
+            created_at: createdAt
+        });
+        if (error) {
+            console.error('Error adding stage:', error);
+            setStages(prev => prev.filter(s => s.id !== id));
+            return false;
+        }
+        return true;
+    };
 
-    const addQuiz = async (_quiz: Quiz) => { /* implementation */ };
-    const updateQuiz = async (_id: string, _updates: Partial<Quiz>) => { /* implementation */ };
-    const deleteQuiz = async (_id: string) => { /* implementation */ };
-    const addLesson = async (_lesson: Lesson) => { /* implementation */ };
-    const updateLesson = async (_id: string, _updates: Partial<Lesson>) => { /* implementation */ };
-    const deleteLesson = async (_id: string) => { /* implementation */ };
-    const addWalkthrough = async (_walkthrough: Walkthrough) => { /* implementation */ };
-    const updateWalkthrough = async (_id: string, _updates: Partial<Walkthrough>) => { /* implementation */ };
-    const deleteWalkthrough = async (_id: string) => { /* implementation */ };
-    const reorderQuiz = async (_id: string, _direction: 'up' | 'down') => { /* implementation */ };
-    const reorderCourse = async (_id: string, _direction: 'up' | 'down') => { /* implementation */ };
-    const reorderItem = async (_id: string, _type: 'quiz' | 'lesson' | 'walkthrough', _direction: 'up' | 'down') => { /* implementation */ };
+    const updateStage = async (id: string, updates: Partial<Stage>): Promise<boolean> => {
+        const original = stages.find(s => s.id === id);
+        setStages(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+
+        const { createdAt, order, courseId, ...rest } = updates;
+        const payload: any = { ...rest };
+        if (order !== undefined) payload.order_index = order;
+        if (courseId !== undefined) payload.course_id = courseId;
+        // Don't update created_at usually, but if needed:
+        if (createdAt !== undefined) payload.created_at = createdAt;
+
+        const { error } = await supabase.from('stages').update(payload).eq('id', id);
+        if (error) {
+            console.error('Error updating stage:', error);
+            if (original) setStages(prev => prev.map(s => s.id === id ? original : s));
+            return false;
+        }
+        return true;
+    };
+
+    const deleteStage = async (id: string) => {
+        const toDelete = stages.find(s => s.id === id);
+        setStages(prev => prev.filter(s => s.id !== id));
+        const { error } = await supabase.from('stages').delete().eq('id', id);
+        if (error && toDelete) setStages(prev => [...prev, toDelete]);
+    };
+
+    const reorderStage = async (id: string, direction: 'up' | 'down') => {
+        const stage = stages.find(s => s.id === id);
+        if (!stage) return;
+
+        // Sort by current order
+        const relevantStages = stages
+            .filter(s => s.courseId === stage.courseId)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const currentIndex = relevantStages.findIndex(s => s.id === id);
+        if (currentIndex === -1) return;
+
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= relevantStages.length) return;
+
+        // Move
+        const [moved] = relevantStages.splice(currentIndex, 1);
+        relevantStages.splice(newIndex, 0, moved);
+
+        // Re-index relevant stages
+        const updatedStages = relevantStages.map((s, index) => ({ ...s, order: index }));
+
+        // Update local state (merge updated stages back into full list)
+        setStages(prev => prev.map(s => {
+            const updated = updatedStages.find(u => u.id === s.id);
+            return updated ? updated : s;
+        }));
+
+        // DB update
+        const { error } = await supabase.from('stages').upsert(
+            updatedStages.map(s => ({ id: s.id, order_index: s.order }))
+        );
+
+        if (error) {
+            console.error('Error reordering stages:', error);
+            alert(`Failed to save stage order: ${error.message}`);
+            // Revert local state
+            setStages(stages);
+        }
+    };
+
+    const addModule = async (module: Module): Promise<boolean> => {
+        const { id, order, createdAt, stageId, ...data } = module;
+        setModules(prev => [...prev, module]);
+        const { error } = await supabase.from('modules').insert({
+            ...data,
+            id,
+            order_index: order,
+            stage_id: stageId,
+            created_at: createdAt
+        });
+        if (error) {
+            console.error('Error adding module:', error);
+            setModules(prev => prev.filter(m => m.id !== id));
+            return false;
+        }
+        return true;
+    };
+
+    const updateModule = async (id: string, updates: Partial<Module>): Promise<boolean> => {
+        const original = modules.find(m => m.id === id);
+        setModules(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+
+        const { createdAt, order, stageId, ...rest } = updates;
+        const payload: any = { ...rest };
+        if (order !== undefined) payload.order_index = order;
+        if (stageId !== undefined) payload.stage_id = stageId;
+        if (createdAt !== undefined) payload.created_at = createdAt;
+
+        const { error } = await supabase.from('modules').update(payload).eq('id', id);
+        if (error) {
+            console.error('Error updating module:', error);
+            if (original) setModules(prev => prev.map(m => m.id === id ? original : m));
+            return false;
+        }
+        return true;
+    };
+
+    const deleteModule = async (id: string) => {
+        const toDelete = modules.find(m => m.id === id);
+        setModules(prev => prev.filter(m => m.id !== id));
+        const { error } = await supabase.from('modules').delete().eq('id', id);
+        if (error && toDelete) setModules(prev => [...prev, toDelete]);
+    };
+
+    const reorderModule = async (id: string, direction: 'up' | 'down') => {
+        const module = modules.find(m => m.id === id);
+        if (!module) return;
+
+        const relevantModules = modules
+            .filter(m => m.stageId === module.stageId)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const currentIndex = relevantModules.findIndex(m => m.id === id);
+        if (currentIndex === -1) return;
+
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= relevantModules.length) return;
+
+        // Move
+        const [moved] = relevantModules.splice(currentIndex, 1);
+        relevantModules.splice(newIndex, 0, moved);
+
+        // Re-index
+        const updatedModules = relevantModules.map((m, index) => ({ ...m, order: index }));
+
+        // Optimistic update
+        setModules(prev => prev.map(m => {
+            const updated = updatedModules.find(u => u.id === m.id);
+            return updated ? updated : m;
+        }));
+
+        // DB update
+        const { error } = await supabase.from('modules').upsert(
+            updatedModules.map(m => ({ id: m.id, order_index: m.order }))
+        );
+
+        if (error) {
+            console.error('Error reordering modules:', error);
+            alert(`Failed to save module order: ${error.message}`);
+            // Revert local state
+            setModules(modules);
+        }
+    };
+
+    const reorderItem = async (id: string, type: 'quiz' | 'lesson' | 'walkthrough', direction: 'up' | 'down') => {
+        let item: (Quiz | Lesson | Walkthrough) | undefined;
+        let collection: (Quiz | Lesson | Walkthrough)[] = [];
+        let tableName = '';
+        let setState: React.Dispatch<React.SetStateAction<any[]>> | undefined;
+
+        if (type === 'quiz') {
+            item = quizzes.find(q => q.id === id);
+            collection = quizzes;
+            tableName = 'quizzes';
+            setState = setQuizzes;
+        } else if (type === 'lesson') {
+            item = lessons.find(l => l.id === id);
+            collection = lessons;
+            tableName = 'lessons';
+            setState = setLessons as any;
+        } else if (type === 'walkthrough') {
+            item = walkthroughs.find(w => w.id === id);
+            collection = walkthroughs;
+            tableName = 'walkthroughs';
+            setState = setWalkthroughs as any;
+        }
+
+        if (!item || !setState) return;
+
+        const sameTypeSiblings = collection.filter(i => {
+            if (item!.moduleId) return i.moduleId === item!.moduleId;
+            if (item!.courseId) return i.courseId === item!.courseId && !i.moduleId;
+            return false;
+        }).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const currentIndex = sameTypeSiblings.findIndex(i => i.id === id);
+        if (currentIndex === -1) return;
+
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= sameTypeSiblings.length) return;
+
+        // Move
+        const [moved] = sameTypeSiblings.splice(currentIndex, 1);
+        sameTypeSiblings.splice(newIndex, 0, moved);
+
+        // Re-index
+        const updatedItems = sameTypeSiblings.map((i, index) => ({ ...i, order: index }));
+
+        // Optimistic update
+        setState(prev => prev.map(i => {
+            const updated = updatedItems.find(u => u.id === i.id);
+            return updated ? updated : i;
+        }));
+
+        // DB Update
+        const { error } = await supabase.from(tableName).upsert(
+            updatedItems.map(i => ({ id: i.id, order_index: i.order }))
+        );
+
+        if (error) {
+            console.error(`Error reordering ${tableName}:`, error);
+            alert(`Failed to save ${type} order: ${error.message}`);
+            // Revert
+            setState(collection);
+        }
+    };
+
+    const addQuiz = async (quiz: Quiz) => {
+        const { id, order, ...data } = quiz;
+        setQuizzes(prev => [...prev, quiz]);
+        const { error } = await supabase.from('quizzes').insert({ ...data, order_index: order });
+        if (error) {
+            console.error('Error adding quiz:', error);
+            setQuizzes(prev => prev.filter(q => q.id !== id));
+        }
+    };
+
+    const updateQuiz = async (id: string, updates: Partial<Quiz>) => {
+        const original = quizzes.find(q => q.id === id);
+        setQuizzes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+        const { error } = await supabase.from('quizzes').update({ ...updates }).eq('id', id);
+        if (error && original) setQuizzes(prev => prev.map(q => q.id === id ? original : q));
+    };
+
+    const deleteQuiz = async (id: string) => {
+        const original = quizzes.find(q => q.id === id);
+        setQuizzes(prev => prev.filter(q => q.id !== id));
+        const { error } = await supabase.from('quizzes').delete().eq('id', id);
+        if (error && original) setQuizzes(prev => [...prev, original]);
+    };
+
+    const reorderQuiz = async (id: string, direction: 'up' | 'down') => reorderItem(id, 'quiz', direction);
+
+    const addLesson = async (lesson: Lesson) => {
+        const { id, order, ...data } = lesson;
+        setLessons(prev => [...prev, lesson]);
+        const { error } = await supabase.from('lessons').insert({ ...data, order_index: order });
+        if (error) {
+            console.error('Error adding lesson:', error);
+            setLessons(prev => prev.filter(l => l.id !== id));
+        }
+    };
+
+    const updateLesson = async (id: string, updates: Partial<Lesson>) => {
+        const original = lessons.find(l => l.id === id);
+        setLessons(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+        const { error } = await supabase.from('lessons').update({ ...updates }).eq('id', id);
+        if (error && original) setLessons(prev => prev.map(l => l.id === id ? original : l));
+    };
+
+    const deleteLesson = async (id: string) => {
+        const original = lessons.find(l => l.id === id);
+        setLessons(prev => prev.filter(l => l.id !== id));
+        const { error } = await supabase.from('lessons').delete().eq('id', id);
+        if (error && original) setLessons(prev => [...prev, original]);
+    };
+
+    const addWalkthrough = async (walkthrough: Walkthrough) => {
+        const { id, order, ...data } = walkthrough;
+        setWalkthroughs(prev => [...prev, walkthrough]);
+        const { error } = await supabase.from('walkthroughs').insert({ ...data, order_index: order });
+        if (error) {
+            console.error('Error adding walkthrough:', error);
+            setWalkthroughs(prev => prev.filter(w => w.id !== id));
+        }
+    };
+
+    const updateWalkthrough = async (id: string, updates: Partial<Walkthrough>) => {
+        const original = walkthroughs.find(w => w.id === id);
+        setWalkthroughs(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+        const { error } = await supabase.from('walkthroughs').update({ ...updates }).eq('id', id);
+        if (error && original) setWalkthroughs(prev => prev.map(w => w.id === id ? original : w));
+    };
+
+    const deleteWalkthrough = async (id: string) => {
+        const original = walkthroughs.find(w => w.id === id);
+        setWalkthroughs(prev => prev.filter(w => w.id !== id));
+        const { error } = await supabase.from('walkthroughs').delete().eq('id', id);
+        if (error && original) setWalkthroughs(prev => [...prev, original]);
+    };
+
+    const reorderCourse = async (id: string, direction: 'up' | 'down') => {
+        // Sort first to ensure we work with correct order
+        const sortedCourses = [...courses].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const idx = sortedCourses.findIndex(c => c.id === id);
+        if (idx === -1) return;
+
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= sortedCourses.length) return;
+
+        // Move
+        const [moved] = sortedCourses.splice(idx, 1);
+        sortedCourses.splice(newIdx, 0, moved);
+
+        // Re-index all
+        const newCourses = sortedCourses.map((c, index) => ({ ...c, order: index }));
+
+        // Optimistic update
+        setCourses(newCourses);
+
+        // Persist all
+        await Promise.all(
+            newCourses.map(c =>
+                supabase.from('courses').update({ order_index: c.order }).eq('id', c.id)
+            )
+        );
+    };
 
     return (
         <QuizContext.Provider value={{
             quizzes, addQuiz, updateQuiz, deleteQuiz, completeQuiz, completedQuizzes, reorderQuiz,
             courses, addCourse, updateCourse, deleteCourse, reorderCourse,
+            stages, addStage, updateStage, deleteStage, reorderStage,
+            modules, addModule, updateModule, deleteModule, reorderModule,
             lessons, addLesson, updateLesson, deleteLesson, completeLesson, completedLessons,
             walkthroughs, addWalkthrough, updateWalkthrough, deleteWalkthrough, completeWalkthrough, completedWalkthroughs,
             reorderItem, isLoading

@@ -317,6 +317,7 @@ const dictionaries: Record<string, Record<string, string>> = {
         'teacher.quizzes.deleteConfirm': 'Delete this course? All content inside will be moved to "Uncategorized".',
         'teacher.quizzes.enterTopic': 'Enter a topic for the quiz:',
         'teacher.quizzes.generateFail': 'Failed to generate quiz.',
+        'teacher.quizzes.saveFail': 'Failed to save course. Please check your connection and try again.',
         'teacher.quizzes.newQuiz': 'New Quiz',
         'teacher.quizzes.quizDesc': 'Quiz description...',
         'teacher.quizzes.newQuestion': 'New Question',

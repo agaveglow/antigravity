@@ -51,7 +51,7 @@ const SubmissionContext = createContext<SubmissionContextType | undefined>(undef
 export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { createNotification } = useNotifications();
+    const { createNotification, triggerCelebration } = useNotifications();
 
     const loadSubmissions = async () => {
         console.log('SubmissionContext: loadSubmissions triggered');
@@ -165,6 +165,9 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     const updateSubmission = async (id: string, updates: Partial<Submission>) => {
+        // Get original submission for celebration
+        const originalSubmission = submissions.find(s => s.id === id);
+
         // Optimistic update
         setSubmissions(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
 
@@ -207,6 +210,57 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 break;
             }
             success = true;
+
+            // Trigger celebration if task was just verified
+            if (success && updates.status === 'Verified' && originalSubmission && originalSubmission.status !== 'Verified') {
+                // Task verification celebration
+                triggerCelebration({
+                    type: 'task_verified',
+                    title: 'Task Verified! 🎉',
+                    message: `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
+                    icon: '✅',
+                    color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    xpGained: 50 // Default XP for task verification
+                });
+
+                // Create persistent notification
+                await createNotification(
+                    originalSubmission.studentId,
+                    'Task Verified',
+                    `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
+                    'task_verified',
+                    `/student/projects/${originalSubmission.projectId}`,
+                    originalSubmission.taskId,
+                    'task'
+                );
+
+                // Check if this completes the project
+                const projectSubmissions = submissions.filter(s => s.projectId === originalSubmission.projectId && s.studentId === originalSubmission.studentId);
+                const allVerified = projectSubmissions.every(s => s.id === id ? updates.status === 'Verified' : s.status === 'Verified');
+
+                if (allVerified && projectSubmissions.length > 0) {
+                    // Project completion celebration
+                    triggerCelebration({
+                        type: 'project_completed',
+                        title: 'Project Completed! 🎊',
+                        message: 'Congratulations! You have completed all tasks in this project!',
+                        icon: '🎉',
+                        color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                        xpGained: 200 // Bonus XP for project completion
+                    });
+
+                    // Create persistent notification for project completion
+                    await createNotification(
+                        originalSubmission.studentId,
+                        'Project Completed',
+                        'Congratulations! You have completed all tasks in this project!',
+                        'project_completed',
+                        `/student/projects/${originalSubmission.projectId}`,
+                        originalSubmission.projectId,
+                        'project'
+                    );
+                }
+            }
         }
     };
 

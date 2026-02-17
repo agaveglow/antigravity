@@ -24,7 +24,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                zIndex: 1000,
+                zIndex: 1100,
                 padding: '1rem'
             }}
             onClick={onClose}
@@ -32,11 +32,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
             <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                    maxWidth: '90vw',
                     maxHeight: '90vh',
                     overflow: 'auto',
                     animation: 'modalSlideIn 0.3s ease-out',
-                    width: '500px'
+                    width: 'auto',
+                    minWidth: '500px'
                 }}
             >
                 <Card elevated style={{ margin: 0, padding: 'var(--space-6)' }}>

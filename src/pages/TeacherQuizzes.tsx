@@ -3,22 +3,35 @@ import { useQuizzes } from '../context/QuizContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useLanguage } from '../context/LanguageContext';
+import BadgeAttachment from '../components/BadgeAttachment';
 import {
     Plus, Edit3, Trash2, Save, Sparkles, Loader2, Folder, FolderPlus, ArrowLeft,
     ChevronUp, ChevronDown, BookOpen, FileText, Image as ImageIcon
 } from 'lucide-react';
-import type { Quiz, Question, Course, Lesson, Walkthrough } from '../types/ual';
+import type { Quiz, Question, Course, Lesson, Walkthrough, Stage, Module } from '../types/ual';
 import PageTransition from '../components/common/PageTransition';
 import { generateQuizAI } from '../services/QuizGenerator';
 import WalkthroughEditor from '../components/curriculum/WalkthroughEditor';
+import RichTextEditor from '../components/common/RichTextEditor';
+import RichTextViewer from '../components/common/RichTextViewer';
 
 // Simple UUID generator
-const generateId = () => Math.random().toString(36).substring(2, 9);
+const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
 
 const TeacherQuizzes: React.FC = () => {
     const {
         quizzes, addQuiz, updateQuiz, deleteQuiz,
         courses, addCourse, updateCourse, deleteCourse, reorderCourse,
+        stages, addStage, updateStage, deleteStage, reorderStage,
+        modules, addModule, updateModule, deleteModule, reorderModule,
         lessons, addLesson, updateLesson, deleteLesson,
         walkthroughs, addWalkthrough, updateWalkthrough, deleteWalkthrough,
         reorderItem
@@ -40,6 +53,20 @@ const TeacherQuizzes: React.FC = () => {
     const [isEditingWalkthrough, setIsEditingWalkthrough] = useState(false);
     const [editingWalkthrough, setEditingWalkthrough] = useState<Walkthrough | null>(null);
 
+    // Hierarchy State
+    const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+    const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
+    const [isEditingStage, setIsEditingStage] = useState(false);
+    const [editingStage, setEditingStage] = useState<Stage | null>(null);
+
+    const [isEditingModule, setIsEditingModule] = useState(false);
+    const [editingModule, setEditingModule] = useState<Module | null>(null);
+
+    // Filters
+    const [selectedFilterLevel, setSelectedFilterLevel] = useState<string>('');
+    const [selectedFilterSubject, setSelectedFilterSubject] = useState<string>('');
+
     // --- Course Management ---
 
     const handleCreateCourse = () => {
@@ -49,22 +76,125 @@ const TeacherQuizzes: React.FC = () => {
             description: t('teacher.quizzes.courseDesc'),
             color: '#3498db',
             order: 0,
+            published: false,
             createdAt: new Date().toISOString()
         };
         setEditingCourse(newCourse);
         setIsEditingCourse(true);
     };
 
-    const handleSaveCourse = () => {
+    const handleCreateStage = () => {
+        if (!selectedCourseId) return;
+        const newStage: Stage = {
+            id: generateId(),
+            courseId: selectedCourseId,
+            title: 'New Stage',
+            description: 'Stage description',
+            order: stages.filter(s => s.courseId === selectedCourseId).length,
+            createdAt: new Date().toISOString()
+        };
+        setEditingStage(newStage);
+        setIsEditingStage(true);
+        // Store scroll position before navigating away
+        sessionStorage.setItem('courseScrollPosition', window.scrollY.toString());
+    };
+
+    const handleSaveStage = async () => {
+        if (!editingStage) return;
+        const existing = stages.find(s => s.id === editingStage.id);
+        let success = false;
+        if (existing) {
+            success = await updateStage(editingStage.id, editingStage);
+        } else {
+            success = await addStage(editingStage);
+        }
+        if (success) {
+            setIsEditingStage(false);
+            setEditingStage(null);
+            // Restore scroll position after a short delay to allow render
+            setTimeout(() => {
+                const scrollPos = sessionStorage.getItem('courseScrollPosition');
+                if (scrollPos) {
+                    window.scrollTo(0, parseInt(scrollPos));
+                    sessionStorage.removeItem('courseScrollPosition');
+                }
+            }, 100);
+        } else {
+            alert('Failed to save stage');
+        }
+    };
+
+    const handleDeleteStage = (id: string) => {
+        if (window.confirm('Delete stage? This will remove all modules and content within it.')) {
+            deleteStage(id);
+        }
+    };
+
+    const handleCreateModule = (stageId?: string) => {
+        const targetStageId = stageId || selectedStageId;
+        if (!targetStageId) return;
+        const newModule: Module = {
+            id: generateId(),
+            stageId: targetStageId,
+            title: 'New Module',
+            description: 'Module description',
+            order: modules.filter(m => m.stageId === targetStageId).length,
+            createdAt: new Date().toISOString()
+        };
+        setEditingModule(newModule);
+        setIsEditingModule(true);
+        // Store scroll position before navigating away
+        sessionStorage.setItem('courseScrollPosition', window.scrollY.toString());
+    };
+
+    const handleSaveModule = async () => {
+        if (!editingModule) return;
+        const existing = modules.find(m => m.id === editingModule.id);
+        let success = false;
+        if (existing) {
+            success = await updateModule(editingModule.id, editingModule);
+        } else {
+            success = await addModule(editingModule);
+        }
+        if (success) {
+            setIsEditingModule(false);
+            setEditingModule(null);
+            // Restore scroll position after a short delay to allow render
+            setTimeout(() => {
+                const scrollPos = sessionStorage.getItem('courseScrollPosition');
+                if (scrollPos) {
+                    window.scrollTo(0, parseInt(scrollPos));
+                    sessionStorage.removeItem('courseScrollPosition');
+                }
+            }, 100);
+        } else {
+            alert('Failed to save module');
+        }
+    };
+
+    const handleDeleteModule = (id: string) => {
+        if (window.confirm('Delete module? This will remove all content within it.')) {
+            deleteModule(id);
+        }
+    };
+
+    const handleSaveCourse = async () => {
         if (!editingCourse) return;
         const existing = courses.find(c => c.id === editingCourse.id);
+        let result: { success: boolean; error?: string } = { success: false, error: '' };
+
         if (existing) {
-            updateCourse(editingCourse.id, editingCourse);
+            result = await updateCourse(editingCourse.id, editingCourse);
         } else {
-            addCourse(editingCourse);
+            result = await addCourse(editingCourse);
         }
-        setIsEditingCourse(false);
-        setEditingCourse(null);
+
+        if (result.success) {
+            setIsEditingCourse(false);
+            setEditingCourse(null);
+        } else {
+            alert(result.error || t('teacher.quizzes.saveFail') || 'Failed to save course. Please check your connection and try again.');
+        }
     };
 
     const handleDeleteCourse = (id: string) => {
@@ -84,6 +214,7 @@ const TeacherQuizzes: React.FC = () => {
         try {
             const generatedQuiz = await generateQuizAI(topic);
             generatedQuiz.courseId = selectedCourseId; // Link to current course
+            generatedQuiz.moduleId = selectedModuleId || undefined; // Link to current module
             setEditingQuiz(generatedQuiz);
             setIsEditingQuiz(true);
         } catch (error) {
@@ -99,6 +230,7 @@ const TeacherQuizzes: React.FC = () => {
         const newQuiz: Quiz = {
             id: generateId(),
             courseId: selectedCourseId || undefined,
+            moduleId: selectedModuleId || undefined,
             title: t('teacher.quizzes.newQuiz'),
             description: t('teacher.quizzes.quizDesc'),
             questions: [],
@@ -166,6 +298,7 @@ const TeacherQuizzes: React.FC = () => {
         const newLesson: Lesson = {
             id: generateId(),
             courseId: selectedCourseId,
+            moduleId: selectedModuleId || undefined,
             title: t('teacher.quizzes.newLesson'),
             description: t('teacher.quizzes.lessonDesc'),
             content: t('teacher.quizzes.lessonContent'),
@@ -217,6 +350,116 @@ const TeacherQuizzes: React.FC = () => {
 
     // --- Render Views ---
 
+    // 0. Stage & Module Editors
+    if (isEditingStage && editingStage) {
+        return (
+            <PageTransition>
+                <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: 'var(--space-12)' }}>
+                    <h2>{stages.find(s => s.id === editingStage.id) ? 'Edit Stage' : 'New Stage'}</h2>
+                    <Card>
+                        <div style={{ display: 'grid', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.title')}</label>
+                                <input
+                                    value={editingStage.title}
+                                    onChange={e => setEditingStage({ ...editingStage, title: e.target.value })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.description')}</label>
+                                <RichTextEditor
+                                    value={editingStage.description}
+                                    onChange={value => setEditingStage({ ...editingStage, description: value })}
+                                    height="200px"
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>XP Reward</label>
+                                    <input
+                                        type="number"
+                                        value={editingStage.xpReward || 0}
+                                        onChange={e => setEditingStage({ ...editingStage, xpReward: parseInt(e.target.value) || 0 })}
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>DowdBucks Reward</label>
+                                    <input
+                                        type="number"
+                                        value={editingStage.dowdBucksReward || 0}
+                                        onChange={e => setEditingStage({ ...editingStage, dowdBucksReward: parseInt(e.target.value) || 0 })}
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                <Button variant="outline" onClick={() => setIsEditingStage(false)}>{t('teacher.quizzes.cancel')}</Button>
+                                <Button variant="primary" onClick={handleSaveStage}>{t('teacher.quizzes.save') || 'Save'}</Button>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </PageTransition>
+        );
+    }
+
+    if (isEditingModule && editingModule) {
+        return (
+            <PageTransition>
+                <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: 'var(--space-12)' }}>
+                    <h2>{modules.find(m => m.id === editingModule.id) ? 'Edit Module' : 'New Module'}</h2>
+                    <Card>
+                        <div style={{ display: 'grid', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.title')}</label>
+                                <input
+                                    value={editingModule.title}
+                                    onChange={e => setEditingModule({ ...editingModule, title: e.target.value })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.description')}</label>
+                                <RichTextEditor
+                                    value={editingModule.description}
+                                    onChange={value => setEditingModule({ ...editingModule, description: value })}
+                                    height="200px"
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>XP Reward</label>
+                                    <input
+                                        type="number"
+                                        value={editingModule.xpReward || 0}
+                                        onChange={e => setEditingModule({ ...editingModule, xpReward: parseInt(e.target.value) || 0 })}
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>DowdBucks Reward</label>
+                                    <input
+                                        type="number"
+                                        value={editingModule.dowdBucksReward || 0}
+                                        onChange={e => setEditingModule({ ...editingModule, dowdBucksReward: parseInt(e.target.value) || 0 })}
+                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                <Button variant="outline" onClick={() => setIsEditingModule(false)}>{t('teacher.quizzes.cancel')}</Button>
+                                <Button variant="primary" onClick={handleSaveModule}>{t('teacher.quizzes.save') || 'Save'}</Button>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </PageTransition>
+        );
+    }
+
     // 1. Course Editor
     if (isEditingCourse && editingCourse) {
         return (
@@ -235,11 +478,36 @@ const TeacherQuizzes: React.FC = () => {
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.description')}</label>
-                                <textarea
+                                <RichTextEditor
                                     value={editingCourse.description}
-                                    onChange={e => setEditingCourse({ ...editingCourse, description: e.target.value })}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'white' }}
+                                    onChange={value => setEditingCourse({ ...editingCourse, description: value })}
+                                    height="250px"
                                 />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Level</label>
+                                <select
+                                    value={editingCourse.level || ''}
+                                    onChange={e => setEditingCourse({ ...editingCourse, level: e.target.value as any })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                                >
+                                    <option value="">Select Level (All)</option>
+                                    <option value="Level 2">Level 2</option>
+                                    <option value="Level 3A">Level 3 - First Year</option>
+                                    <option value="Level 3B">Level 3 - Second Year</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Subject</label>
+                                <select
+                                    value={editingCourse.subject || ''}
+                                    onChange={e => setEditingCourse({ ...editingCourse, subject: e.target.value as any })}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                                >
+                                    <option value="">Select Subject (All)</option>
+                                    <option value="music">Music</option>
+                                    <option value="performing_arts">Performing Arts</option>
+                                </select>
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('teacher.quizzes.field.color')}</label>
@@ -249,6 +517,16 @@ const TeacherQuizzes: React.FC = () => {
                                     onChange={e => setEditingCourse({ ...editingCourse, color: e.target.value })}
                                     style={{ width: '100%', height: '40px', padding: '0', border: 'none', cursor: 'pointer' }}
                                 />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                    type="checkbox"
+                                    id="course-published"
+                                    checked={editingCourse.published || false}
+                                    onChange={e => setEditingCourse({ ...editingCourse, published: e.target.checked })}
+                                    style={{ width: '1.2rem', height: '1.2rem' }}
+                                />
+                                <label htmlFor="course-published" style={{ cursor: 'pointer' }}>Published (Visible to Students)</label>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                                 <Button variant="outline" onClick={() => setIsEditingCourse(false)}>{t('teacher.quizzes.cancel')}</Button>
@@ -305,10 +583,11 @@ const TeacherQuizzes: React.FC = () => {
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>{t('teacher.quizzes.field.content')}</label>
-                                <textarea
+                                <RichTextEditor
                                     value={editingLesson.content}
-                                    onChange={e => setEditingLesson({ ...editingLesson, content: e.target.value })}
-                                    style={{ width: '100%', height: '400px', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                                    onChange={value => setEditingLesson({ ...editingLesson, content: value })}
+                                    height="450px"
+                                    placeholder="Write your lesson content here..."
                                 />
                             </div>
                         </div>
@@ -332,6 +611,7 @@ const TeacherQuizzes: React.FC = () => {
                     <WalkthroughEditor
                         initialData={editingWalkthrough || {}}
                         courseId={selectedCourseId || undefined}
+                        moduleId={selectedModuleId || undefined} // Pass moduleId to editor
                         onSave={handleSaveWalkthrough}
                         onCancel={() => setIsEditingWalkthrough(false)}
                     />
@@ -444,14 +724,67 @@ const TeacherQuizzes: React.FC = () => {
         );
     }
 
-    // 4. Course Details (List of Quizzes & Lessons)
+    // 4. Course Details (Hierarchy View: Stages -> Modules -> Content)
     if (selectedCourseId) {
         const course = courses.find(c => c.id === selectedCourseId);
-        const courseQuizzes = quizzes.filter(q => q.courseId === selectedCourseId).map(q => ({ ...q, itemType: 'quiz' as const }));
-        const courseLessons = lessons?.filter(l => l.courseId === selectedCourseId).map(l => ({ ...l, itemType: 'lesson' as const })) || [];
-        const courseWalkthroughs = walkthroughs?.filter(w => w.courseId === selectedCourseId).map(w => ({ ...w, itemType: 'walkthrough' as const })) || [];
+        const courseStages = stages.filter(s => s.courseId === selectedCourseId).sort((a, b) => a.order - b.order);
 
-        const allItems = [...courseQuizzes, ...courseLessons, ...courseWalkthroughs].sort((a, b) => (a.order || 0) - (b.order || 0));
+        // Helper to get modules for a stage
+        const getStageModules = (stageId: string) => modules.filter(m => m.stageId === stageId).sort((a, b) => a.order - b.order);
+
+        // Helper to get content for a module OR course (legacy)
+        const getContent = (moduleId?: string, courseId?: string) => {
+            let filteredQuizzes: Quiz[] = [];
+            let filteredLessons: Lesson[] = [];
+            let filteredWalkthroughs: Walkthrough[] = [];
+
+            if (moduleId) {
+                filteredQuizzes = quizzes.filter(q => q.moduleId === moduleId);
+                filteredLessons = lessons.filter(l => l.moduleId === moduleId);
+                filteredWalkthroughs = walkthroughs.filter(w => w.moduleId === moduleId);
+            } else if (courseId) {
+                // Legacy: Content directly attached to course and NOT in any module
+                filteredQuizzes = quizzes.filter(q => q.courseId === courseId && !q.moduleId);
+                filteredLessons = lessons.filter(l => l.courseId === courseId && !l.moduleId);
+                filteredWalkthroughs = walkthroughs.filter(w => w.courseId === courseId && !w.moduleId);
+            }
+
+            return [
+                ...filteredQuizzes.map(q => ({ ...q, itemType: 'quiz' as const })),
+                ...filteredLessons.map(l => ({ ...l, itemType: 'lesson' as const })),
+                ...filteredWalkthroughs.map(w => ({ ...w, itemType: 'walkthrough' as const }))
+            ].sort((a, b) => (a.order || 0) - (b.order || 0));
+        };
+
+        const renderContentItem = (item: any, index: number, array: any[]) => (
+            <Card key={item.id} elevated hover style={{
+                display: 'flex', flexDirection: 'column',
+                borderLeft: item.itemType === 'lesson' ? '4px solid var(--color-brand-purple)' : (item.itemType === 'walkthrough' ? '4px solid #43a047' : '4px solid var(--color-brand-cyan)'),
+                marginBottom: 'var(--space-2)'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {item.itemType === 'lesson' ? <BookOpen size={12} /> : (item.itemType === 'walkthrough' ? <ImageIcon size={12} /> : <FileText size={12} />)}
+                        {item.itemType.toUpperCase()}
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderItem(item.id, item.itemType, 'up')}><ChevronUp size={16} /></Button>
+                        <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderItem(item.id, item.itemType, 'down')}><ChevronDown size={16} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                            if (item.itemType === 'quiz') { setEditingQuiz(item as Quiz); setIsEditingQuiz(true); }
+                            else if (item.itemType === 'walkthrough') { setEditingWalkthrough(item as Walkthrough); setIsEditingWalkthrough(true); }
+                            else { setEditingLesson(item as Lesson); setIsEditingLesson(true); }
+                        }}><Edit3 size={16} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                            if (item.itemType === 'quiz') deleteQuiz(item.id);
+                            else if (item.itemType === 'walkthrough') handleDeleteWalkthrough(item.id);
+                            else deleteLesson(item.id);
+                        }} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
+                    </div>
+                </div>
+                <h3 style={{ margin: '0 0 var(--space-2)' }}>{item.title}</h3>
+            </Card>
+        );
 
         return (
             <PageTransition>
@@ -460,72 +793,155 @@ const TeacherQuizzes: React.FC = () => {
                         <Button variant="ghost" onClick={() => setSelectedCourseId(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                             <ArrowLeft size={16} /> {t('teacher.quizzes.backToCourses')}
                         </Button>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h1 style={{ margin: 0, color: course?.color || 'white' }}>{course?.title}</h1>
-                                <p style={{ color: 'var(--text-secondary)' }}>{course?.description}</p>
+
+                        {/* Course Header Card */}
+                        <Card elevated style={{ marginBottom: 'var(--space-6)', borderTop: `4px solid ${course?.color || 'var(--primary-color)'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                                        <h1 style={{ margin: 0, color: course?.color || 'var(--text-primary)', fontSize: '2rem' }}>{course?.title}</h1>
+                                        {!course?.published && (
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                background: 'var(--bg-subtle)',
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border-color)',
+                                                color: 'var(--text-tertiary)'
+                                            }}>
+                                                DRAFT
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Metadata Chips */}
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                                        {course?.level && (
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                padding: '4px 10px',
+                                                borderRadius: '12px',
+                                                background: 'var(--color-brand-cyan)',
+                                                color: 'white',
+                                                fontWeight: 600
+                                            }}>
+                                                {course.level === 'level_2' ? 'Level 2' : course.level === 'level_3a' ? 'Level 3 First Year' : 'Level 3 Second Year'}
+                                            </span>
+                                        )}
+                                        {course?.subject && (
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                padding: '4px 10px',
+                                                borderRadius: '12px',
+                                                background: 'var(--color-brand-purple)',
+                                                color: 'white',
+                                                fontWeight: 600
+                                            }}>
+                                                {course.subject === 'music' ? 'Music' : 'Performing Arts'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Description */}
+                                    {course?.description && (
+                                        <div style={{
+                                            lineHeight: '1.6',
+                                            margin: 0,
+                                            fontSize: '0.95rem',
+                                            maxWidth: '800px'
+                                        }}>
+                                            <RichTextViewer content={course.description} />
+                                        </div>
+                                    )}
+
+                                    <BadgeAttachment
+                                        entityType="course"
+                                        entityId={course.id}
+                                        entityName={course.title}
+                                    />
+                                </div>
+
+                                <Button onClick={handleCreateStage} variant="primary" style={{ flexShrink: 0 }}>
+                                    <Plus size={20} style={{ marginRight: '8px' }} /> Add Stage
+                                </Button>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <Button onClick={handleGenerateQuiz} variant="secondary" disabled={isGenerating}>
-                                    {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} style={{ marginRight: '8px' }} />}
-                                    {t('teacher.quizzes.aiGenerate')}
-                                </Button>
-                                <Button onClick={handleCreateLesson} variant="secondary">
-                                    <BookOpen size={20} style={{ marginRight: '8px' }} /> {t('teacher.quizzes.addLesson')}
-                                </Button>
-                                <Button onClick={handleCreateWalkthrough} variant="secondary">
-                                    <ImageIcon size={20} style={{ marginRight: '8px' }} /> Add Walkthrough
-                                </Button>
-                                <Button onClick={handleCreateQuiz} variant="primary">
-                                    <Plus size={20} style={{ marginRight: '8px' }} /> {t('teacher.quizzes.createQuiz')}
-                                </Button>
-                            </div>
-                        </div>
+                        </Card>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-6)' }}>
-                        {allItems.map((item, index, array) => (
-                            <Card key={item.id} elevated hover style={{ display: 'flex', flexDirection: 'column', borderLeft: item.itemType === 'lesson' ? '4px solid var(--color-brand-purple)' : (item.itemType === 'walkthrough' ? '4px solid #43a047' : '4px solid var(--color-brand-cyan)') }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {item.itemType === 'lesson' ? <BookOpen size={12} /> : (item.itemType === 'walkthrough' ? <ImageIcon size={12} /> : <FileText size={12} />)}
-                                        {item.itemType.toUpperCase()}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: '4px' }}>
-                                        <Button size="sm" variant="ghost" onClick={() => {
-                                            if (item.itemType === 'quiz') { setEditingQuiz(item as Quiz); setIsEditingQuiz(true); }
-                                            else if (item.itemType === 'walkthrough') { setEditingWalkthrough(item as Walkthrough); setIsEditingWalkthrough(true); }
-                                            else { setEditingLesson(item as Lesson); setIsEditingLesson(true); }
-                                        }}><Edit3 size={16} /></Button>
-                                        <Button size="sm" variant="ghost" onClick={() => {
-                                            if (item.itemType === 'quiz') deleteQuiz(item.id);
-                                            else if (item.itemType === 'walkthrough') handleDeleteWalkthrough(item.id);
-                                            else deleteLesson(item.id);
-                                        }} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
+                    {/* Stages List */}
+                    <div style={{ display: 'grid', gap: 'var(--space-6)' }}>
+                        {courseStages.map((stage, index, array) => (
+                            <Card key={stage.id} style={{ border: '1px solid var(--border-color)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                                    <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{stage.title}</h2>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderStage(stage.id, 'up')}><ChevronUp size={16} /></Button>
+                                        <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderStage(stage.id, 'down')}><ChevronDown size={16} /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => { setEditingStage(stage); setIsEditingStage(true); }}><Edit3 size={16} /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleDeleteStage(stage.id)} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                                    <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderItem(item.id, item.itemType, 'up')}><ChevronUp size={16} /></Button>
-                                    <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderItem(item.id, item.itemType, 'down')}><ChevronDown size={16} /></Button>
-                                </div>
-                                <h3 style={{ margin: '0 0 var(--space-2)' }}>{item.title}</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', flex: 1 }}>{item.description}</p>
-                                <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                    {item.itemType === 'quiz' && <span>{(item as Quiz).questions?.length || 0} Qs</span>}
-                                    {item.itemType === 'walkthrough' && <span>{(item as Walkthrough).steps?.length || 0} Steps</span>}
-                                    <span style={{ color: 'var(--color-brand-cyan)' }}>{item.xpReward} XP</span>
+
+                                {/* Modules in Stage */}
+                                <div style={{ marginLeft: '1rem', display: 'grid', gap: '1rem' }}>
+                                    {getStageModules(stage.id).map((module, index, array) => (
+                                        <div key={module.id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--bg-subtle)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                <h3 style={{ margin: 0, fontSize: '1rem' }}>{module.title}</h3>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderModule(module.id, 'up')}><ChevronUp size={14} /></Button>
+                                                    <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderModule(module.id, 'down')}><ChevronDown size={14} /></Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => { setEditingModule(module); setIsEditingModule(true); }}><Edit3 size={14} /></Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteModule(module.id)} style={{ color: 'var(--color-danger)' }}><Trash2 size={14} /></Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Content in Module */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '0.5rem' }}>
+                                                {getContent(module.id).map(renderContentItem)}
+
+                                                {/* Add Content Buttons for Module */}
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                        setSelectedStageId(stage.id);
+                                                        setSelectedModuleId(module.id);
+                                                        handleCreateLesson();
+                                                    }}><Plus size={14} /> Lesson</Button>
+                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                        setSelectedStageId(stage.id);
+                                                        setSelectedModuleId(module.id);
+                                                        handleCreateQuiz();
+                                                    }}><Plus size={14} /> Quiz</Button>
+                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                        setSelectedStageId(stage.id);
+                                                        setSelectedModuleId(module.id);
+                                                        handleGenerateQuiz();
+                                                    }} disabled={isGenerating}>
+                                                        {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} AI Quiz
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                        setSelectedStageId(stage.id);
+                                                        setSelectedModuleId(module.id);
+                                                        handleCreateWalkthrough();
+                                                    }}><Plus size={14} /> Walkthrough</Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <Button variant="outline" onClick={() => handleCreateModule(stage.id)} style={{ justifySelf: 'start', marginTop: '0.5rem' }}>
+                                        <Plus size={16} style={{ marginRight: '6px' }} /> Add Module
+                                    </Button>
                                 </div>
                             </Card>
                         ))}
-                        {allItems.length === 0 && (
-                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)', border: '2px dashed var(--border-color)', borderRadius: '12px' }}>
-                                <p>{t('teacher.quizzes.noContent')}</p>
-                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
-                                    <Button variant="ghost" onClick={handleCreateLesson}>{t('teacher.quizzes.addLesson')}</Button>
-                                    <Button variant="ghost" onClick={handleCreateQuiz}>{t('teacher.quizzes.createQuiz')}</Button>
-                                </div>
-                            </div>
-                        )}
+                    </div>
+
+                    {/* Legacy/Uncategorized Content */}
+                    <div style={{ marginTop: '2rem' }}>
+                        <h3>Uncategorized Content</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-6)' }}>
+                            {getContent(undefined, selectedCourseId).map(renderContentItem)}
+                        </div>
                     </div>
                 </div>
             </PageTransition>
@@ -541,38 +957,78 @@ const TeacherQuizzes: React.FC = () => {
                         <h1 style={{ margin: 0 }}>{t('teacher.quizzes.title')}</h1>
                         <p style={{ color: 'var(--text-secondary)' }}>{t('teacher.quizzes.subtitle')}</p>
                     </div>
-                    <Button onClick={handleCreateCourse} variant="primary">
-                        <FolderPlus size={20} style={{ marginRight: '8px' }} /> {t('teacher.quizzes.newCourse')}
-                    </Button>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        {/* Filter Controls */}
+                        <select
+                            value={selectedFilterLevel}
+                            onChange={e => setSelectedFilterLevel(e.target.value)}
+                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        >
+                            <option value="">All Levels</option>
+                            <option value="Level 2">Level 2</option>
+                            <option value="Level 3A">Level 3 - First Year</option>
+                            <option value="Level 3B">Level 3 - Second Year</option>
+                        </select>
+                        <select
+                            value={selectedFilterSubject}
+                            onChange={e => setSelectedFilterSubject(e.target.value)}
+                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        >
+                            <option value="">All Subjects</option>
+                            <option value="music">Music</option>
+                            <option value="performing_arts">Performing Arts</option>
+                        </select>
+                        <Button onClick={handleCreateCourse} variant="primary">
+                            <FolderPlus size={20} style={{ marginRight: '8px' }} /> {t('teacher.quizzes.newCourse')}
+                        </Button>
+                    </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-6)' }}>
-                    {[...courses].sort((a, b) => (a.order || 0) - (b.order || 0)).map((course, index, array) => (
-                        <Card
-                            key={course.id}
-                            elevated
-                            hover
-                            onClick={() => setSelectedCourseId(course.id)}
-                            style={{ cursor: 'pointer', borderTop: `4px solid ${course.color || 'var(--primary-color)'}` }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <Folder size={32} color={course.color || 'var(--text-primary)'} />
-                                <div style={{ display: 'flex' }} onClick={(e) => e.stopPropagation()}>
-                                    <Button size="sm" variant="ghost" onClick={() => { setEditingCourse(course); setIsEditingCourse(true); }}><Edit3 size={16} /></Button>
-                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteCourse(course.id)} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
+                    {[...courses]
+                        .filter(c => !selectedFilterLevel || c.level === selectedFilterLevel)
+                        .filter(c => !selectedFilterSubject || c.subject === selectedFilterSubject)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((course, index, array) => (
+                            <Card
+                                key={course.id}
+                                elevated
+                                hover
+                                onClick={() => setSelectedCourseId(course.id)}
+                                style={{
+                                    cursor: 'pointer',
+                                    borderTop: `4px solid ${course.color || 'var(--primary-color)'}`,
+                                    opacity: course.published ? 1 : 0.7,
+                                    border: course.published ? undefined : '1px dashed var(--border-color)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Folder size={32} color={course.color || 'var(--text-primary)'} />
+                                        {!course.published && <span style={{ fontSize: '0.7rem', background: 'var(--bg-subtle)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>DRAFT</span>}
+                                    </div>
+                                    <div style={{ display: 'flex' }} onClick={(e) => e.stopPropagation()}>
+                                        <Button size="sm" variant="ghost" onClick={() => { setEditingCourse(course); setIsEditingCourse(true); }}><Edit3 size={16} /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleDeleteCourse(course.id)} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                                <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderCourse(course.id, 'up')}><ChevronUp size={16} /></Button>
-                                <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderCourse(course.id, 'down')}><ChevronDown size={16} /></Button>
-                            </div>
-                            <h2 style={{ fontSize: '1.2rem', margin: '0 0 0.5rem' }}>{course.title}</h2>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>{course.description}</p>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-                                {t('teacher.quizzes.quizCount').replace('{count}', quizzes.filter(q => q.courseId === course.id).length.toString())} • {t('teacher.quizzes.lessonCount').replace('{count}', (lessons?.filter(l => l.courseId === course.id).length || 0).toString())}
-                            </div>
-                        </Card>
-                    ))}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
+                                    <Button size="sm" variant="ghost" disabled={index === 0} onClick={() => reorderCourse(course.id, 'up')}><ChevronUp size={16} /></Button>
+                                    <Button size="sm" variant="ghost" disabled={index === array.length - 1} onClick={() => reorderCourse(course.id, 'down')}><ChevronDown size={16} /></Button>
+                                </div>
+                                <h2 style={{ fontSize: '1.2rem', margin: '0 0 0.5rem' }}>{course.title}</h2>
+                                <div style={{ display: 'flex', gap: '4px', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                    {course.level && <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>{course.level}</span>}
+                                    {course.subject && <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>{course.subject === 'music' ? 'Music' : 'Performing Arts'}</span>}
+                                </div>
+                                <div style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                    <RichTextViewer content={course.description} />
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
+                                    {t('teacher.quizzes.quizCount').replace('{count}', quizzes.filter(q => q.courseId === course.id).length.toString())} • {t('teacher.quizzes.lessonCount').replace('{count}', (lessons?.filter(l => l.courseId === course.id).length || 0).toString())}
+                                </div>
+                            </Card>
+                        ))}
 
                     {/* Uncategorized Section */}
                     {quizzes.some(q => !q.courseId) && (

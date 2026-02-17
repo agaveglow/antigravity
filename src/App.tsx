@@ -38,18 +38,24 @@ import BookingAndLoans from './pages/BookingAndLoans';
 import SetSecurePassword from './pages/SetSecurePassword';
 
 import { AchievementsProvider } from './context/AchievementsContext';
+import { BadgeProvider } from './context/BadgeContext';
 import StudentAchievements from './pages/StudentAchievements';
 import TeacherAchievements from './pages/TeacherAchievements';
+import BadgeManagement from './pages/BadgeManagement';
 import { ResourceProvider } from './context/ResourceContext';
 import { ERCProvider } from './context/ERCContext';
 import ERCRecordsHub from './pages/ERCRecords/ERCRecordsHub';
 import ERCProjects from './pages/ERCRecords/ERCProjects';
 import ERCBookings from './pages/ERCRecords/ERCBookings';
-import PerformingArtsHub from './pages/PerformingArtsHub'; // Added
+import PerformingArtsHub from './pages/PerformingArtsHub';
+import StudentProgressDashboard from './pages/StudentProgressDashboard';
+import StudentOverallProgress from './pages/StudentOverallProgress'; // Added
 
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { NotificationProvider } from './context/NotificationContext';
+import { ProgressProvider } from './context/ProgressContext';
 import DueDateChecker from './components/tools/DueDateChecker';
+import CelebrationManager from './components/CelebrationManager';
 
 function App() {
   return (
@@ -61,99 +67,110 @@ function App() {
               <CurriculumProvider>
                 <SubmissionProvider>
                   <QuizProvider>
-                    <StudentsProvider>
-                      <TimetableProvider>
-                        <AchievementsProvider>
-                          <AssessmentProvider>
-                            <ERCProvider>
-                              <BrowserRouter>
-                                <DueDateChecker />
-                                <Routes>
-                                  {/* Public Routes */}
-                                  <Route path="/diagnostic" element={<Diagnostic />} />
-                                  <Route path="/login" element={<Login />} />
-                                  <Route path="/" element={<Navigate to="/login" replace />} />
+                    <ProgressProvider>
+                      <StudentsProvider>
+                        <TimetableProvider>
+                          <AchievementsProvider>
+                            <BadgeProvider>
+                              <AssessmentProvider>
+                                <ERCProvider>
+                                  <BrowserRouter>
+                                    <DueDateChecker />
+                                    <CelebrationManager />
+                                    <Routes>
+                                      {/* Public Routes */}
+                                      <Route path="/diagnostic" element={<Diagnostic />} />
+                                      <Route path="/login" element={<Login />} />
+                                      <Route path="/" element={<Navigate to="/login" replace />} />
 
-                                  {/* Protected Route for Password Change */}
-                                  <Route element={<ProtectedRoute allowedRoles={['student', 'teacher', 'admin']} />}>
-                                    <Route path="/set-password" element={<SetSecurePassword />} />
-                                  </Route>
+                                      {/* Protected Route for Password Change */}
+                                      <Route element={<ProtectedRoute allowedRoles={['student', 'teacher', 'admin']} />}>
+                                        <Route path="/set-password" element={<SetSecurePassword />} />
+                                      </Route>
 
-                                  {/* Student Routes */}
-                                  <Route element={<ProtectedRoute allowedRoles={['student']} />}>
-                                    <Route path="/student" element={<Layout />}>
-                                      <Route index element={<StudentDashboard />} />
-                                      <Route path="learning" element={<StudentLearning />} />
-                                      <Route path="achievements" element={<StudentAchievements />} />
-                                      <Route path="project/:id" element={<ProjectBriefView />} />
-                                      <Route path="task/:taskId" element={<TaskSubmission />} />
-                                      <Route path="resources" element={<BookingAndLoans />} />
-                                      <Route path="performing-arts" element={<PerformingArtsHub />} /> {/* Added */}
-                                      {/* Redirects for old routes */}
-                                      <Route path="booking" element={<Navigate to="/student/resources" replace />} />
-                                      <Route path="equipment" element={<Navigate to="/student/resources" replace />} />
+                                      {/* Student Routes */}
+                                      <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+                                        <Route path="/student" element={<Layout />}>
+                                          <Route index element={<StudentDashboard />} />
+                                          <Route path="learning" element={<StudentLearning />} />
+                                          <Route path="achievements" element={<StudentAchievements />} />
+                                          <Route path="project/:id" element={<ProjectBriefView />} />
+                                          <Route path="task/:taskId" element={<TaskSubmission />} />
+                                          <Route path="resources" element={<BookingAndLoans />} />
+                                          <Route path="performing-arts" element={<PerformingArtsHub />} />
+                                          <Route path="progress" element={<StudentOverallProgress />} /> {/* Added */}
+                                          {/* Redirects for old routes */}
+                                          <Route path="booking" element={<Navigate to="/student/resources" replace />} />
+                                          <Route path="equipment" element={<Navigate to="/student/resources" replace />} />
 
-                                      <Route path="store" element={<DowdBucksStore />} />
-                                      <Route path="inventory" element={<Inventory />} />
-                                      <Route path="projects" element={<Projects />} />
-                                      <Route path="grades" element={<Grades />} />
-                                      <Route path="*" element={<Navigate to="/student" replace />} />
-                                    </Route>
-                                  </Route>
+                                          <Route path="store" element={<DowdBucksStore />} />
+                                          <Route path="inventory" element={<Inventory />} />
+                                          <Route path="projects" element={<Projects />} />
+                                          <Route path="grades" element={<Grades />} />
+                                          <Route path="*" element={<Navigate to="/student" replace />} />
+                                        </Route>
+                                      </Route>
 
-                                  {/* Teacher Routes */}
-                                  <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
-                                    <Route path="/teacher" element={<Layout />}>
-                                      <Route index element={<TeacherDashboard />} />
-                                      <Route path="students" element={<ManageStudents />} />
-                                      <Route path="students/:id" element={<StudentProfileView />} />
-                                      <Route path="projects" element={<ProjectManagement />} />
-                                      <Route path="quizzes" element={<TeacherQuizzes />} />
-                                      <Route path="achievements" element={<TeacherAchievements />} />
-                                      <Route path="resources" element={<BookingAndLoans />} />
-                                      {/* Redirects for old routes */}
-                                      <Route path="booking" element={<Navigate to="/teacher/resources" replace />} />
-                                      <Route path="equipment" element={<Navigate to="/teacher/resources" replace />} />
-                                      <Route path="assessment" element={<AssessmentHub />} />
-                                      <Route path="assessment/:submissionId" element={<AssessmentView />} />
-                                      <Route path="setup" element={<AcademicYearSetup />} />
-                                      <Route path="qa" element={<QualityAssurance />} />
-                                      <Route path="*" element={<Navigate to="/teacher" replace />} />
-                                    </Route>
-                                  </Route>
+                                      {/* Teacher Routes */}
+                                      <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
+                                        <Route path="/teacher" element={<Layout />}>
+                                          <Route index element={<TeacherDashboard />} />
+                                          <Route path="students" element={<ManageStudents />} />
+                                          <Route path="students/:id" element={<StudentProfileView />} />
+                                          <Route path="projects" element={<ProjectManagement />} />
+                                          <Route path="quizzes" element={<TeacherQuizzes />} />
+                                          <Route path="achievements" element={<TeacherAchievements />} />
+                                          <Route path="badges" element={<BadgeManagement />} />
+                                          <Route path="resources" element={<BookingAndLoans />} />
+                                          {/* Redirects for old routes */}
+                                          <Route path="booking" element={<Navigate to="/teacher/resources" replace />} />
+                                          <Route path="equipment" element={<Navigate to="/teacher/resources" replace />} />
+                                          <Route path="assessment" element={<AssessmentHub />} />
+                                          <Route path="assessment/:submissionId" element={<AssessmentView />} />
+                                          <Route path="setup" element={<AcademicYearSetup />} />
+                                          <Route path="qa" element={<QualityAssurance />} />
+                                          <Route path="progress" element={<StudentProgressDashboard />} /> {/* Added */}
+                                          <Route path="*" element={<Navigate to="/teacher" replace />} />
+                                        </Route>
+                                      </Route>
 
-                                  {/* Admin Routes */}
-                                  <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                                    <Route path="/admin" element={<Layout />}>
-                                      <Route index element={<AdminDashboard />} />
-                                    </Route>
-                                  </Route>
 
-                                  {/* Shared Routes */}
-                                  <Route path="/profile" element={<Layout />}>
-                                    <Route index element={<Profile />} />
-                                  </Route>
-                                  <Route path="/calendar" element={<Layout />}>
-                                    <Route index element={<Calendar />} />
-                                  </Route>
-                                  <Route path="/timetable" element={<Layout />}>
-                                    <Route index element={<Timetable />} />
-                                  </Route>
-                                  <Route path="/erc" element={<Layout />}>
-                                    <Route index element={<ERCRecordsHub />} />
-                                    <Route path="projects" element={<ERCProjects />} />
-                                    <Route path="bookings" element={<ERCBookings />} />
-                                  </Route>
-                                  <Route path="/support" element={<Layout />}>
-                                    <Route index element={<Support />} />
-                                  </Route>
-                                </Routes>
-                              </BrowserRouter>
-                            </ERCProvider>
-                          </AssessmentProvider>
-                        </AchievementsProvider>
-                      </TimetableProvider>
-                    </StudentsProvider>
+                                      {/* Admin Routes */}
+                                      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                                        <Route path="/admin" element={<Layout />}>
+                                          <Route index element={<AdminDashboard />} />
+                                          <Route path="badges" element={<BadgeManagement />} />
+                                          <Route path="progress" element={<StudentProgressDashboard />} />
+                                        </Route>
+                                      </Route>
+
+                                      {/* Shared Routes */}
+                                      <Route path="/profile" element={<Layout />}>
+                                        <Route index element={<Profile />} />
+                                      </Route>
+                                      <Route path="/calendar" element={<Layout />}>
+                                        <Route index element={<Calendar />} />
+                                      </Route>
+                                      <Route path="/timetable" element={<Layout />}>
+                                        <Route index element={<Timetable />} />
+                                      </Route>
+                                      <Route path="/erc" element={<Layout />}>
+                                        <Route index element={<ERCRecordsHub />} />
+                                        <Route path="projects" element={<ERCProjects />} />
+                                        <Route path="bookings" element={<ERCBookings />} />
+                                      </Route>
+                                      <Route path="/support" element={<Layout />}>
+                                        <Route index element={<Support />} />
+                                      </Route>
+                                    </Routes>
+                                  </BrowserRouter>
+                                </ERCProvider>
+                              </AssessmentProvider>
+                            </BadgeProvider>
+                          </AchievementsProvider>
+                        </TimetableProvider>
+                      </StudentsProvider>
+                    </ProgressProvider>
                   </QuizProvider>
                 </SubmissionProvider>
               </CurriculumProvider>

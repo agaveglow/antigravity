@@ -164,7 +164,7 @@ const StudentHub: React.FC = () => {
 const TeacherHub: React.FC = () => {
     const navigate = useNavigate();
     const { projects, bookings, resources } = useERC();
-    const { user } = useUser();
+
 
     // Stats for Teacher of today's bookings
     const todayBookings = bookings.filter(b => {

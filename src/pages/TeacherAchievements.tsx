@@ -3,6 +3,8 @@ import { useAchievements } from '../context/AchievementsContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import BadgeAttachment from '../components/BadgeAttachment';
+import RichTextViewer from '../components/common/RichTextViewer';
 import { Plus, Edit2, Trash2, Award, Zap, Brain, Users, Sun, Footprints, Trophy, Star, Music, Sliders } from 'lucide-react';
 import type { Achievement, AchievementCategory } from '../types/achievements';
 
@@ -117,14 +119,20 @@ const TeacherAchievements: React.FC = () => {
                                 </div>
                             </div>
 
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                {achievement.description}
-                            </p>
+                            <div style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                <RichTextViewer content={achievement.description} />
+                            </div>
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                                 <span style={{ fontWeight: 600, color: 'var(--color-brand-gold)' }}>{achievement.xpValue} XP</span>
                                 <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>{achievement.criteria}</span>
                             </div>
+
+                            <BadgeAttachment
+                                entityType="achievement"
+                                entityId={achievement.id}
+                                entityName={achievement.title}
+                            />
                         </Card>
                     );
                 })}

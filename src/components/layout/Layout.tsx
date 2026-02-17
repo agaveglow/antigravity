@@ -7,10 +7,11 @@ import { useSubmissions } from '../../context/SubmissionContext'; // Import Adde
 import {
     Menu, X, User as UserIcon, LogOut, Calendar, BookOpen, ShoppingBag, Package, Clock, LayoutDashboard,
     Heart, Users, Home, FolderOpen, BarChart2, Award, Box, ClipboardList, CheckCircle,
-    FileCheck, Shield, Disc, Star
+    FileCheck, Shield, Disc, Star, TrendingUp
 } from 'lucide-react';
 import './Layout.css';
 import NotificationBell from './NotificationBell';
+import StudentNotificationBell from '../notifications/StudentNotificationBell';
 
 const Layout: React.FC = () => {
     const { user, role, logout } = useUser();
@@ -34,6 +35,7 @@ const Layout: React.FC = () => {
 
     const studentLinks: NavLinkItem[] = [
         { to: '/student', label: t('sidebar.dashboard'), icon: <Home size={20} />, end: true },
+        { to: '/student/progress', label: 'My Progress', icon: <TrendingUp size={20} /> }, // Added
         { to: '/student/learning', label: t('sidebar.learning'), icon: <BookOpen size={20} /> },
         { to: '/student/projects', label: t('sidebar.projects'), icon: <FolderOpen size={20} /> },
         { to: '/student/grades', label: t('sidebar.grades'), icon: <BarChart2 size={20} /> },
@@ -50,6 +52,7 @@ const Layout: React.FC = () => {
         { to: '/teacher/quizzes', label: 'Courses', icon: <ClipboardList size={20} /> }, // No translation key yet
         { to: '/teacher/assessment', label: 'Assessment', icon: <CheckCircle size={20} /> }, // No translation key yet
         { to: '/teacher/achievements', label: 'Achievements', icon: <Award size={20} /> },
+        { to: '/teacher/badges', label: 'Badges', icon: <Star size={20} /> },
         { to: '/teacher/qa', label: 'QA & IV', icon: <FileCheck size={20} /> }, // No translation key yet
         { to: '/teacher/resources', label: t('sidebar.resources'), icon: <Box size={20} /> },
     ];
@@ -71,7 +74,7 @@ const Layout: React.FC = () => {
         // Let's hide specific ones as requested: ERC Records, Studio Booking, Equipment
 
         // Filter shared links
-        const hiddenSharedPaths = ['/erc'];
+        // const hiddenSharedPaths = ['/erc'];
 
         // Filter role links
         const hiddenRolePaths = ['/student/store', '/student/resources', '/teacher/resources'];
@@ -110,7 +113,7 @@ const Layout: React.FC = () => {
                 </button>
                 <div className="logo">ERC Learn</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <NotificationBell />
+                    {role === 'student' ? <StudentNotificationBell /> : <NotificationBell />}
                     <div className="user-avatar-sm" onClick={() => navigate('/profile')} style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {user?.avatar && typeof user.avatar === 'string' ? (
                             (user.avatar.startsWith('http') || user.avatar.startsWith('/')) ? (
@@ -217,7 +220,7 @@ const Layout: React.FC = () => {
                     </h2>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <NotificationBell />
+                        {role === 'student' ? <StudentNotificationBell /> : <NotificationBell />}
 
                         <div
                             className="avatar-placeholder"

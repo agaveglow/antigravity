@@ -73,6 +73,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (error) {
                 console.error('UserContext: Error fetching profile:', error.message, error.details);
+                alert(`Profile Error: ${error.message} (Check Console)`);
 
                 // If the error is a column mismatch (400), try fetching a minimal profile
                 if (error.message?.includes('column') || error.code === 'PGRST116') {
@@ -85,6 +86,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     if (minimalError) {
                         console.error('UserContext: Minimal profile fetch also failed:', minimalError.message);
+                        alert(`Critical: Could not load profile. ${minimalError.message}`);
                         return null;
                     }
                     console.log('UserContext: Successfully fetched minimal profile');
@@ -92,12 +94,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 return null;
             }
+            if (!data) {
+                console.error('UserContext: Profile not found for ID:', userId);
+                alert('Profile not found in database. Contact admin.');
+            }
             return data;
         } catch (e: any) {
             if (e.message === 'TIMEOUT') {
                 console.warn('⚡ Profile fetch timed out (3s). Check for ad-blockers or slow network.');
+                alert('Connection timed out loading profile. Please refresh.');
             } else {
                 console.error('Exception in fetchProfile:', e);
+                alert(`Unexpected error loading profile: ${e.message}`);
             }
             return null;
         }
@@ -361,10 +369,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileData.avatar) dbData.avatar = profileData.avatar;
 
         if (Object.keys(dbData).length > 0) {
-            await supabase
+            const { error } = await supabase
                 .from('profiles')
                 .update(dbData)
                 .eq('id', user.id);
+
+            if (error) {
+                console.error('UserContext: Error updating profile:', error);
+                if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                    alert('This username is already taken. Please choose another one.');
+                    // Revert local state if needed, though for now we just alert
+                } else {
+                    alert('Failed to update profile. Please try again.');
+                }
+            }
         }
     };
 

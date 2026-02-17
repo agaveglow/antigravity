@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
+import { useStudentProgressData } from '../context/useStudentProgressData'; // Added import
 import { useStudents } from '../context/StudentsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useCurriculum } from '../context/CurriculumContext';
@@ -29,6 +30,7 @@ const StudentDashboard: React.FC = () => {
 
     // Find the live student data based on the logged-in user
     const liveStudent = students.find(s => s.id === user?.id || s.username === user?.username);
+    const { overallProgress, loading: loadingProgress } = useStudentProgressData(liveStudent?.id);
 
     const calculateProgress = (projectId: string) => {
         if (!user) return 0;
@@ -201,13 +203,16 @@ const StudentDashboard: React.FC = () => {
                             color: 'var(--color-brand-purple)',
                             fontSize: '0.9rem'
                         }}>
-                            Start
+                            {/* Display Overall Progress instead of generic Start */}
+                            {loadingProgress ? '...' : `${overallProgress}%`}
                         </div>
                     </div>
 
                     <div style={{ textAlign: 'right', flex: 1, zIndex: 1 }}>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: '4px' }}>{t('dashboard.level')} {Math.floor((liveStudent?.xp || 0) / 250) + 1}</div>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-brand-purple)', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{liveStudent?.xp || 0} <span style={{ fontSize: '1rem', fontWeight: 500 }}>{t('dashboard.xp')}</span></div>
+                        <>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: '4px' }}>{t('dashboard.level')} {Math.floor((liveStudent?.xp || 0) / 250) + 1}</div>
+                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-brand-purple)', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{liveStudent?.xp || 0} <span style={{ fontSize: '1rem', fontWeight: 500 }}>{t('dashboard.xp')}</span></div>
+                        </>
                     </div>
                 </Card>
             </div>
@@ -216,7 +221,7 @@ const StudentDashboard: React.FC = () => {
             <div className="dashboard-grid student-dashboard-layout">
 
                 {/* Quick Navigation Cards */}
-                <div className="nav-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-6)' }}>
+                <div className="nav-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-6)' }}>
                     <Card
                         elevated
                         hover
@@ -315,6 +320,39 @@ const StudentDashboard: React.FC = () => {
                         <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>Active Projects</h3>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>View and manage projects</p>
                     </Card>
+
+                    <Card
+                        elevated
+                        hover
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: 'var(--space-6)',
+                            minHeight: '160px',
+                            background: 'linear-gradient(135deg, var(--bg-surface), rgba(255, 99, 71, 0.05))' // Tomato red hint
+                        }}
+                        onClick={() => navigate('/student/progress')}
+                    >
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'rgba(255, 99, 71, 0.1)',
+                            color: 'tomato', // Distinct color
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>%</div>
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>My Progress</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Track your performance</p>
+                    </Card>
                 </div>
 
                 {/* Active Projects */}
@@ -340,7 +378,7 @@ const StudentDashboard: React.FC = () => {
                                     </div>
 
                                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                                        {project.scenario?.substring(0, 120)}...
+                                        {project.scenario?.replace(/<[^>]*>?/gm, '').substring(0, 120)}...
                                     </p>
 
                                     <div style={{ width: '100%', height: '6px', background: 'var(--bg-input)', borderRadius: '3px', marginBottom: '1.5rem' }}>

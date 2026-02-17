@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useQuizzes } from '../context/QuizContext';
 import { useAchievements } from '../context/AchievementsContext';
+import { useProgress } from '../context/ProgressContext';
+import { useNotifications } from '../context/NotificationContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import ProgressBar from '../components/common/ProgressBar';
 import { Lock, Star, CheckCircle2, Play, Flag, X, ArrowLeft, BookOpen, Image } from 'lucide-react';
 import type { Quiz, Lesson, Walkthrough } from '../types/ual';
 import PageTransition from '../components/common/PageTransition';
-import Markdown from 'react-markdown';
 import { audioService } from '../utils/audio';
 import WalkthroughViewer from '../components/curriculum/WalkthroughViewer';
+import RichTextViewer from '../components/common/RichTextViewer';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useUser } from '../context/UserContext';
@@ -23,6 +26,8 @@ const StudentLearning: React.FC = () => {
     const { t } = useLanguage();
     const { awardAchievement, achievements } = useAchievements();
     const { user } = useUser();
+    const { markComplete } = useProgress();
+    const { triggerCelebration } = useNotifications();
 
     // UI State
     const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
@@ -83,10 +88,13 @@ const StudentLearning: React.FC = () => {
         }
     };
 
-    const finishQuiz = () => {
+    const finishQuiz = async () => {
         if (!activeQuiz || !user) return;
         setQuizCompleted(true);
         completeQuiz(activeQuiz.id);
+
+        // Track progress and award rewards
+        await markComplete('quiz', activeQuiz.id, activeQuiz.xpReward || 0, activeQuiz.dowdBucksReward || 0);
 
         // Calculate Score
         const totalQuestions = activeQuiz.questions.length;
@@ -97,23 +105,80 @@ const StudentLearning: React.FC = () => {
             if (quizMaster) {
                 awardAchievement(user.id, quizMaster.id);
             }
+            // Trigger Visual Celebration
+            triggerCelebration({
+                type: 'achievement_unlocked',
+                title: 'Perfect Score!',
+                message: `You aced the quiz "${activeQuiz.title}"!`,
+                icon: 'star',
+                color: 'var(--color-brand-gold)',
+                xpGained: activeQuiz.xpReward
+            });
         }
+
+        checkCourseCompletion(activeQuiz.courseId);
 
         audioService.playLevelUp();
     };
 
-    const handleFinishLesson = () => {
+    const handleFinishLesson = async () => {
         if (!activeLesson) return;
         completeLesson(activeLesson.id);
+
+        // Track progress and award rewards
+        await markComplete('lesson', activeLesson.id, activeLesson.xpReward || 0, 0);
+
+        checkCourseCompletion(activeLesson.courseId);
+
         setActiveLesson(null);
         audioService.playSuccess(); // Small success sound
     };
 
-    const handleFinishWalkthrough = () => {
+    const handleFinishWalkthrough = async () => {
         if (!activeWalkthrough) return;
         completeWalkthrough(activeWalkthrough.id);
+
+        // Track progress and award rewards
+        await markComplete('walkthrough', activeWalkthrough.id, activeWalkthrough.xpReward || 0, activeWalkthrough.dowdBucksReward || 0);
+
+        checkCourseCompletion(activeWalkthrough.courseId);
+
         setActiveWalkthrough(null);
         audioService.playSuccess();
+    };
+
+    const checkCourseCompletion = (courseId?: string) => {
+        if (!courseId) return;
+
+        // We need to check if ALL items in this course are now complete.
+        // We use the 'completedX' arrays from context, AND the currently finished item ID which might not be in there yet if updates are async.
+        // Actually, we can just assume the current item IS finished.
+
+        const cQuizzes = quizzes.filter(q => q.courseId === courseId);
+        const cLessons = lessons.filter(l => l.courseId === courseId);
+        const cWalkthroughs = walkthroughs.filter(w => w.courseId === courseId);
+
+        const allQuizzesDone = cQuizzes.every(q => completedQuizzes.includes(q.id) || (activeQuiz?.id === q.id));
+        const allLessonsDone = cLessons.every(l => completedLessons.includes(l.id) || (activeLesson?.id === l.id));
+        const allWalkthroughsDone = cWalkthroughs.every(w => completedWalkthroughs.includes(w.id) || (activeWalkthrough?.id === w.id));
+
+        if (allQuizzesDone && allLessonsDone && allWalkthroughsDone) {
+            // Check if we ALREADY celebrated this course (prevent spam)
+            // Implementation detail: we could store 'celebratedCourses' in local storage or user prefs
+            // For now, simpler check: if we just finished the LAST item.
+
+            const course = courses.find(c => c.id === courseId);
+            if (course) {
+                triggerCelebration({
+                    type: 'course_completed',
+                    title: 'Course Completed!',
+                    message: `Congratulations! You've completed ${course.title}!`,
+                    icon: 'trophy',
+                    color: course.color || 'var(--color-brand-cyan)',
+                    xpGained: 500 // Bonus XP for course completion?
+                });
+            }
+        }
     };
 
     // --- Render Views ---
@@ -164,7 +229,9 @@ const StudentLearning: React.FC = () => {
 
                 {/* Question Card */}
                 <Card elevated style={{ padding: '2rem' }}>
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>{currentQ.text}</h2>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>
+                        <RichTextViewer content={currentQ.text} />
+                    </div>
 
                     {/* Interactive Question Types */}
                     {currentQ.type === 'listening' && (
@@ -205,7 +272,7 @@ const StudentLearning: React.FC = () => {
                                         fontWeight: 500
                                     }}
                                 >
-                                    {opt.text}
+                                    <RichTextViewer content={opt.text} />
                                 </div>
                             );
                         })}
@@ -235,9 +302,7 @@ const StudentLearning: React.FC = () => {
                     </div>
 
                     <Card elevated style={{ padding: '2rem', marginBottom: '2rem' }}>
-                        <div className="markdown-content" style={{ lineHeight: '1.6', fontSize: '1.1rem' }}>
-                            <Markdown>{activeLesson.content}</Markdown>
-                        </div>
+                        <RichTextViewer content={activeLesson.content} />
                     </Card>
 
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -284,7 +349,13 @@ const StudentLearning: React.FC = () => {
                         </Button>
                         <div>
                             <h1 style={{ margin: 0, fontSize: '1.8rem', color: course?.color }}>{course?.title}</h1>
-                            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{course?.description}</p>
+                            <div style={{
+                                color: 'var(--text-secondary)',
+                                margin: '0.5rem 0 0 0',
+                                lineHeight: '1.6'
+                            }}>
+                                <RichTextViewer content={course?.description || ''} />
+                            </div>
                         </div>
                     </div>
 
@@ -470,14 +541,34 @@ const StudentLearning: React.FC = () => {
                                 style={{ cursor: 'pointer', borderTop: `4px solid ${course.color}` }}
                             >
                                 <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{course.title}</h2>
-                                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>{course.description}</p>
-
-                                <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
-                                    <span>Progress</span>
-                                    <span>{percent}%</span>
+                                <div style={{
+                                    color: 'var(--text-secondary)',
+                                    marginBottom: '1.5rem',
+                                    fontSize: '0.95rem',
+                                    lineHeight: '1.6'
+                                }}>
+                                    <RichTextViewer content={course.description} />
                                 </div>
-                                <div style={{ height: '8px', background: 'var(--bg-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${percent}%`, height: '100%', background: course.color }} />
+
+                                {/* Progress Section */}
+                                <div style={{ marginBottom: '0.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Progress</span>
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            {percent === 100 && (
+                                                <CheckCircle2 size={16} color="var(--color-success)" />
+                                            )}
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: percent === 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>
+                                                {totalCompleted}/{totalItems} ({percent}%)
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <ProgressBar
+                                        current={totalCompleted}
+                                        total={totalItems}
+                                        showPercentage={false}
+                                        color={course.color || 'var(--color-brand-cyan)'}
+                                    />
                                 </div>
                             </Card>
                         );

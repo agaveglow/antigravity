@@ -35,7 +35,7 @@ const AssessmentView: React.FC = () => {
     const { awardAchievement, achievements } = useAchievements();
 
     const { user } = useUser(); // Get current user (teacher)
-    const { getStudentById, updateStudent, awardRewards } = useStudents(); // Import useStudents
+    const { awardRewards } = useStudents(); // Import useStudents
 
     const handleSave = async () => {
         if (submissionId && !submissionId.startsWith('m')) {

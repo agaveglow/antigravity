@@ -32,6 +32,7 @@ export interface ProjectBrief {
   title: string;
   unit: string; // e.g., "Unit 1: Introduction to Music Performance"
   cohort: UALCohort;
+  subject?: 'music' | 'performing_arts';
   introduction: string;
   scenario: string;
   tasks: Task[];
@@ -42,6 +43,7 @@ export interface ProjectBrief {
   gradingScheme?: 'Pass/Fail' | 'Distinction';
   xpReward?: number;
   dowdBucksReward?: number;
+  order?: number;
 }
 
 export interface StudentProgress {
@@ -86,19 +88,47 @@ export interface Question {
   };
 }
 
+
+
+export interface Stage {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  order: number;
+  xpReward?: number;
+  dowdBucksReward?: number;
+  createdAt: string;
+}
+
+export interface Module {
+  id: string;
+  stageId: string;
+  title: string;
+  description: string;
+  order: number;
+  xpReward?: number;
+  dowdBucksReward?: number;
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   title: string;
   description: string;
   imageUrl?: string; // Optional cover image
   color?: string; // Hex code for theme
+  level?: UALCohort; // e.g. "Level 3A"
+  subject?: 'music' | 'performing_arts'; // Matches UserProfile.department
+  published?: boolean;
   order?: number; // For sorting
   createdAt: string;
 }
 
 export interface Quiz {
   id: string;
-  courseId?: string; // Link to a Course
+  courseId?: string; // Link to a Course (Legacy / Direct link)
+  moduleId?: string; // Link to a Module (New hierarchy)
   title: string;
   description: string;
   questions: Question[];
@@ -113,6 +143,7 @@ export interface Quiz {
 export interface Lesson {
   id: string;
   courseId?: string;
+  moduleId?: string;
   title: string;
   description: string; // Short description
   content: string; // Markdown or HTML content
@@ -135,11 +166,38 @@ export interface WalkthroughStep {
 export interface Walkthrough {
   id: string;
   courseId?: string;
+  moduleId?: string;
   title: string;
   description: string;
   steps: WalkthroughStep[];
   order: number;
   type: 'walkthrough';
-  xpReward: number;
+  xpReward?: number;
+  dowdBucksReward?: number;
   createdAt: string;
 }
+
+// Progress tracking types
+export type ContentType = 'lesson' | 'quiz' | 'walkthrough' | 'module' | 'stage' | 'course';
+
+export interface StudentContentProgress {
+  id: string;
+  studentId: string;
+  contentType: ContentType;
+  contentId: string;
+  completed: boolean;
+  completedAt?: string;
+  xpAwarded: number;
+  dowdBucksAwarded: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProgressStats {
+  totalItems: number;
+  completedItems: number;
+  percentageComplete: number;
+  totalXpEarned: number;
+  totalDowdBucksEarned: number;
+}
+

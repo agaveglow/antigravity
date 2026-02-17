@@ -1,0 +1,4 @@
+src/components/layout/Layout.tsx(74,15): error TS6133: 'hiddenSharedPaths' is declared but its value is never read.
+src/pages/AssessmentView.tsx(38,13): error TS6133: 'getStudentById' is declared but its value is never read.
+src/pages/AssessmentView.tsx(38,29): error TS6133: 'updateStudent' is declared but its value is never read.
+src/pages/ERCRecords/ERCRecordsHub.tsx(167,11): error TS6133: 'user' is declared but its value is never read.

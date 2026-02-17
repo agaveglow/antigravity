@@ -5,6 +5,7 @@ import { Search, Plus, User, Shield, Mail, X, Lock, RefreshCw, Trash2, AlertCirc
 import PageTransition from '../components/common/PageTransition';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
+import CohortProgressWidget from '../components/dashboard/CohortProgressWidget';
 
 interface StaffMember {
     id: string;
@@ -117,7 +118,11 @@ const AdminDashboard: React.FC = () => {
             alert(editingStaff ? 'Staff member updated' : 'Staff member created');
         } catch (error: any) {
             console.error('Error saving staff:', error);
-            alert(`Failed to save staff: ${error.message}`);
+            if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                alert('A staff member with this email or username already exists. Please use a different one.');
+            } else {
+                alert(`Failed to save staff: ${error.message}`);
+            }
         }
     };
 
@@ -246,6 +251,11 @@ const AdminDashboard: React.FC = () => {
                             <Plus size={20} style={{ marginRight: '8px' }} /> Add Staff Member
                         </Button>
                     </div>
+                </div>
+
+                {/* Student Progress Monitoring */}
+                <div style={{ marginBottom: '24px' }}>
+                    <CohortProgressWidget />
                 </div>
 
                 {showUnlockPrompt && (
