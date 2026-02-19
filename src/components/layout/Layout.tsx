@@ -65,44 +65,44 @@ const Layout: React.FC = () => {
         { to: '/support', label: t('sidebar.support'), icon: <Heart size={20} /> },
     ];
 
-    let roleLinks = role === 'student' ? studentLinks : teacherLinks;
+    const currentLinks = React.useMemo(() => {
+        let roleLinks = role === 'student' ? studentLinks : teacherLinks;
 
-    // Filter links based on department
-    if (user?.department === 'performing_arts') {
-        // Remove Music-specific links for PA students/teachers
-        // "ERC Records" paths: /erc, /student/store, /student/resources (maybe keep resources?)
-        // Let's hide specific ones as requested: ERC Records, Studio Booking, Equipment
+        // Filter links based on department
+        if (user?.department === 'performing_arts') {
+            const hiddenRolePaths = ['/student/store', '/student/resources', '/teacher/resources'];
 
-        // Filter shared links
-        // const hiddenSharedPaths = ['/erc'];
-
-        // Filter role links
-        const hiddenRolePaths = ['/student/store', '/student/resources', '/teacher/resources'];
-
-        // Add Performing Arts Hub for students
-        if (role === 'student') {
-            roleLinks = [
-                { to: '/student/performing-arts', label: 'PA Hub', icon: <Star size={20} />, end: true },
-                ...roleLinks.filter(link => !hiddenRolePaths.includes(link.to))
-            ];
-        } else {
-            roleLinks = roleLinks.filter(link => !hiddenRolePaths.includes(link.to));
+            if (role === 'student') {
+                roleLinks = [
+                    { to: '/student/performing-arts', label: 'PA Hub', icon: <Star size={20} />, end: true },
+                    ...roleLinks.filter(link => !hiddenRolePaths.includes(link.to))
+                ];
+            } else {
+                roleLinks = roleLinks.filter(link => !hiddenRolePaths.includes(link.to));
+            }
         }
-    }
 
-    // Add admin link if user is admin
-    if (role === 'admin') {
-        roleLinks = [
-            ...teacherLinks,
-            { to: '/admin', label: 'Staff Admin', icon: <Shield size={20} />, end: true }
-        ];
-        // Admin sees everything, no filtering
-    }
+        // Add admin link if user is admin
+        if (role === 'admin') {
+            roleLinks = [
+                ...teacherLinks,
+                { to: '/admin', label: 'Staff Admin', icon: <Shield size={20} />, end: true }
+            ];
+        }
 
-    const currentLinks = [...roleLinks, ...sharedLinks].filter(link => {
-        if (user?.department === 'performing_arts' && ['/erc'].includes(link.to)) return false;
-        return true;
-    });
+        return [...roleLinks, ...sharedLinks].filter(link => {
+            if (user?.department === 'performing_arts' && ['/erc'].includes(link.to)) return false;
+            return true;
+        });
+    }, [role, user?.department, user?.id, t]); // Dependencies
+
+    const pendingVerifications = React.useMemo(() =>
+        submissions.filter(s => s.verificationRequested && !s.verifiedAt).length,
+        [submissions]);
+
+    const resubmissions = React.useMemo(() =>
+        submissions.filter(s => s.studentId === user?.id && s.status === 'Resubmission Required').length,
+        [submissions, user?.id]);
 
     return (
         <div className={`layout-container ${sidebarOpen ? 'sidebar-open' : ''}`}>
@@ -142,32 +142,19 @@ const Layout: React.FC = () => {
                 </div>
                 <div className="role-badge" style={{ alignSelf: 'center', marginBottom: '20px' }}>{role?.toUpperCase()}</div>
 
+
                 <nav className="sidebar-nav">
                     {currentLinks.map((link) => {
                         // Logic for showing dots
                         let showDot = false;
                         const dotColor = '#FF453A'; // Hardcoded bright red to ensure visibility
 
-                        // Debugging logs (can be removed later)
-                        // console.log('Checking dot for:', link.label, 'Role:', role, 'Submissions:', submissions.length);
-
                         if ((role === 'teacher' || role === 'admin') && link.to === '/teacher/assessment') {
-                            const pendingVerifications = submissions.filter(s => s.verificationRequested && !s.verifiedAt).length;
-                            // console.log('Pending Verifications:', pendingVerifications);
                             if (pendingVerifications > 0) showDot = true;
                         }
 
                         if (role === 'student' && link.to === '/student/projects') {
-                            const resubmissions = submissions.filter(s => s.studentId === user?.id && s.status === 'Resubmission Required').length;
                             if (resubmissions > 0) showDot = true;
-                        }
-
-                        // Force override for Teacher Assessment if context fails (Direct check)
-                        // This is a verification step to ensure the red dot appears.
-                        if ((role === 'teacher' || role === 'admin') && link.to === '/teacher/assessment') {
-                            // Use the context count first
-                            const pendingVerifications = submissions.filter(s => s.verificationRequested && !s.verifiedAt).length;
-                            if (pendingVerifications > 0) showDot = true;
                         }
 
                         return (

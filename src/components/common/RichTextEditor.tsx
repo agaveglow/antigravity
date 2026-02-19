@@ -3,13 +3,13 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { FontFamily } from '@tiptap/extension-font-family';
 import './RichTextEditor.css';
 import {
     Bold,
     Italic,
-    Underline as UnderlineIcon,
     List,
     ListOrdered,
     AlignLeft,
@@ -17,7 +17,8 @@ import {
     AlignRight,
     Heading1,
     Heading2,
-    Heading3
+    Heading3,
+    Highlighter
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -28,13 +29,30 @@ interface RichTextEditorProps {
     readOnly?: boolean;
 }
 
+const RECENT_COLORS_KEY = 'tiptap-recent-highlight-colors';
+const MAX_RECENT_COLORS = 8;
+
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
     value,
     onChange,
-    placeholder = 'Start typing...',
     height = '300px',
     readOnly = false
 }) => {
+    const [recentColors, setRecentColors] = React.useState<string[]>(() => {
+        const saved = localStorage.getItem(RECENT_COLORS_KEY);
+        return saved ? JSON.parse(saved) : ['#ffff00', '#00ff00', '#00ffff', '#ff00ff', '#ff0000', '#ffa500'];
+    });
+
+    const updateRecentColors = (color: string) => {
+        if (!color) return;
+        setRecentColors(prev => {
+            const filtered = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
+            const updated = [color, ...filtered].slice(0, MAX_RECENT_COLORS);
+            localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -44,6 +62,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }),
             TextStyle,
             Color,
+            Highlight.configure({
+                multicolor: true
+            }),
             TextAlign.configure({
                 types: ['heading', 'paragraph']
             }),
@@ -166,13 +187,48 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
                     <div className="toolbar-divider" />
 
-                    <input
-                        type="color"
-                        onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
-                        value={editor.getAttributes('textStyle').color || '#000000'}
-                        title="Text Color"
-                        className="color-picker"
-                    />
+                    <div className="color-picker-group" title="Text Color">
+                        <span className="color-label">A</span>
+                        <input
+                            type="color"
+                            onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
+                            value={editor.getAttributes('textStyle').color || '#000000'}
+                            className="color-picker"
+                        />
+                    </div>
+
+                    <div className="color-picker-group" title="Highlight Color">
+                        <Highlighter size={16} className="color-label" />
+                        <div className="recent-colors-container">
+                            <input
+                                type="color"
+                                onInput={(e) => {
+                                    const color = (e.target as HTMLInputElement).value;
+                                    editor.chain().focus().setHighlight({ color }).run();
+                                }}
+                                onChange={(e) => {
+                                    updateRecentColors((e.target as HTMLInputElement).value);
+                                }}
+                                value={editor.getAttributes('highlight').color || '#ffff00'}
+                                className="color-picker"
+                            />
+                            <div className="recent-colors-row">
+                                {recentColors.map((color, index) => (
+                                    <button
+                                        key={`${color}-${index}`}
+                                        className="recent-color-swatch"
+                                        style={{ backgroundColor: color }}
+                                        onClick={() => {
+                                            editor.chain().focus().setHighlight({ color }).run();
+                                            updateRecentColors(color);
+                                        }}
+                                        title={color}
+                                        type="button"
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
             <EditorContent

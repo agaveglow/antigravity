@@ -9,7 +9,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import ProgressBar from '../components/common/ProgressBar';
 import PageTransition from '../components/common/PageTransition';
-import { Search, Filter, Download, Trophy, Coins } from 'lucide-react';
+import { Search, Download, Trophy, Coins } from 'lucide-react';
 
 interface StudentProgressFull {
     studentId: string;
@@ -31,6 +31,9 @@ const StudentProgressDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [progressData, setProgressData] = useState<StudentProgressFull[]>([]);
     const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+    const [selectedSubject, setSelectedSubject] = useState<string>('all');
+    const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<StudentProgressFull | null>(null);
 
@@ -134,7 +137,32 @@ const StudentProgressDashboard: React.FC = () => {
 
     const filteredData = progressData.filter(student => {
         const matchesSearch = student.studentName.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
+
+        // Filter by Subject (if music/performing_arts selected)
+        const profile = students.find(s => s.id === student.studentId);
+        const matchesSubject = selectedSubject === 'all' || profile?.department === selectedSubject;
+
+        // Filter by Level
+        const matchesLevel = selectedLevel === 'all' || profile?.cohort === selectedLevel;
+
+        // Implicit filter by Course/Project subject/cohort
+        let matchesContent = true;
+        if (selectedCourseId !== 'all') {
+            const course = courses.find(c => c.id === selectedCourseId);
+            if (course) {
+                if (course.subject && profile?.department && course.subject !== profile.department) matchesContent = false;
+                if (course.level && profile?.cohort && course.level !== profile.cohort) matchesContent = false;
+            }
+        }
+        if (selectedProjectId !== 'all') {
+            const project = projects.find(p => p.id === selectedProjectId);
+            if (project) {
+                if (project.subject && profile?.department && project.subject !== profile.department) matchesContent = false;
+                if (project.cohort && profile?.cohort && project.cohort !== profile.cohort) matchesContent = false;
+            }
+        }
+
+        return matchesSearch && matchesSubject && matchesLevel && matchesContent;
     });
 
     return (
@@ -157,49 +185,139 @@ const StudentProgressDashboard: React.FC = () => {
 
                     {/* Filters */}
                     <Card elevated style={{ marginBottom: '2rem', padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                            <div style={{ flex: 1, minWidth: '250px' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Search Students</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                            {/* Search */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Search Students</label>
                                 <div style={{ position: 'relative' }}>
-                                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                                     <input
                                         type="text"
-                                        placeholder="Search by name..."
+                                        placeholder="Name..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '10px 10px 10px 40px',
+                                            padding: '8px 8px 8px 36px',
                                             borderRadius: '8px',
                                             border: '1px solid var(--border-color)',
                                             background: 'var(--bg-input)',
-                                            color: 'var(--text-primary)'
+                                            color: 'var(--text-primary)',
+                                            fontSize: '0.9rem'
                                         }}
                                     />
                                 </div>
                             </div>
-                            <div style={{ flex: 1, minWidth: '250px' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Filter by Course</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Filter size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                                    <select
-                                        value={selectedCourseId}
-                                        onChange={(e) => setSelectedCourseId(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 10px 10px 40px',
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border-color)',
-                                            background: 'var(--bg-input)',
-                                            color: 'var(--text-primary)'
-                                        }}
-                                    >
-                                        <option value="all">All Courses</option>
-                                        {courses.map(c => (
+
+                            {/* Subject */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Subject</label>
+                                <select
+                                    value={selectedSubject}
+                                    onChange={(e) => {
+                                        setSelectedSubject(e.target.value);
+                                        setSelectedCourseId('all');
+                                        setSelectedProjectId('all');
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-input)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="all">All Subjects</option>
+                                    <option value="music">Music</option>
+                                    <option value="performing_arts">Performing Arts</option>
+                                </select>
+                            </div>
+
+                            {/* Level */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Level</label>
+                                <select
+                                    value={selectedLevel}
+                                    onChange={(e) => {
+                                        setSelectedLevel(e.target.value);
+                                        setSelectedCourseId('all');
+                                        setSelectedProjectId('all');
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-input)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="all">All Levels</option>
+                                    <option value="Level 2">Level 2</option>
+                                    <option value="Level 3A">Level 3A</option>
+                                    <option value="Level 3B">Level 3B</option>
+                                </select>
+                            </div>
+
+                            {/* Course */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Course</label>
+                                <select
+                                    value={selectedCourseId}
+                                    onChange={(e) => {
+                                        setSelectedCourseId(e.target.value);
+                                        if (e.target.value !== 'all') setSelectedProjectId('all');
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-input)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="all">All Courses</option>
+                                    {courses
+                                        .filter(c => (selectedSubject === 'all' || c.subject === selectedSubject))
+                                        .filter(c => (selectedLevel === 'all' || c.level === selectedLevel))
+                                        .map(c => (
                                             <option key={c.id} value={c.id}>{c.title}</option>
                                         ))}
-                                    </select>
-                                </div>
+                                </select>
+                            </div>
+
+                            {/* Project */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Project</label>
+                                <select
+                                    value={selectedProjectId}
+                                    onChange={(e) => {
+                                        setSelectedProjectId(e.target.value);
+                                        if (e.target.value !== 'all') setSelectedCourseId('all');
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-input)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="all">All Projects</option>
+                                    {projects
+                                        .filter(p => (selectedSubject === 'all' || p.subject === selectedSubject))
+                                        .filter(p => (selectedLevel === 'all' || p.cohort === selectedLevel))
+                                        .map(p => (
+                                            <option key={p.id} value={p.id}>{p.title}</option>
+                                        ))}
+                                </select>
                             </div>
                         </div>
                     </Card>
@@ -236,18 +354,48 @@ const StudentProgressDashboard: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Overall Progress */}
+                                        {/* Progress Display */}
                                         <div style={{ flex: '0 0 150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
-                                                <span>Overall</span>
-                                                <span>{student.overallProgress}%</span>
-                                            </div>
-                                            <ProgressBar
-                                                current={student.overallProgress}
-                                                total={100}
-                                                showPercentage={false}
-                                                color="var(--color-brand-blue)"
-                                            />
+                                            {selectedCourseId !== 'all' ? (
+                                                <>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                        <span>Course Progress</span>
+                                                        <span>{student.courseProgress[selectedCourseId] || 0}%</span>
+                                                    </div>
+                                                    <ProgressBar
+                                                        current={student.courseProgress[selectedCourseId] || 0}
+                                                        total={100}
+                                                        showPercentage={false}
+                                                        color="var(--color-brand-cyan)"
+                                                    />
+                                                </>
+                                            ) : selectedProjectId !== 'all' ? (
+                                                <>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                        <span>Project Progress</span>
+                                                        <span>{student.projectProgress[selectedProjectId] || 0}%</span>
+                                                    </div>
+                                                    <ProgressBar
+                                                        current={student.projectProgress[selectedProjectId] || 0}
+                                                        total={100}
+                                                        showPercentage={false}
+                                                        color="var(--color-brand-purple)"
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                        <span>Overall</span>
+                                                        <span>{student.overallProgress}%</span>
+                                                    </div>
+                                                    <ProgressBar
+                                                        current={student.overallProgress}
+                                                        total={100}
+                                                        showPercentage={false}
+                                                        color="var(--color-brand-blue)"
+                                                    />
+                                                </>
+                                            )}
                                         </div>
 
                                         {/* Rewards Stats */}

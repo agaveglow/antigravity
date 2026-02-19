@@ -12,7 +12,7 @@ const RichTextViewer: React.FC<RichTextViewerProps> = ({ content, className = ''
     const sanitizedContent = DOMPurify.sanitize(content, {
         ALLOWED_TAGS: [
             'p', 'br', 'strong', 'em', 'u', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-            'ul', 'ol', 'li', 'div'
+            'ul', 'ol', 'li', 'div', 'mark'
         ],
         ALLOWED_ATTR: ['style', 'class']
     });

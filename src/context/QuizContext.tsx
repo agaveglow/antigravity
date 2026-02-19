@@ -78,19 +78,45 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Try fallback if order_index fails
                 if (coursesError.message?.includes('order_index')) {
                     const { data: fallbackCourses } = await supabase.from('courses').select('*');
-                    if (fallbackCourses) setCourses(fallbackCourses.map((c: any) => ({ ...c, order: c.order || 0 })));
+                    if (fallbackCourses) {
+                        setCourses(fallbackCourses.map((c: any) => ({
+                            ...c,
+                            imageUrl: c.image_url,
+                            order: c.order || 0
+                        })));
+                    }
                 }
             } else if (coursesData) {
-                setCourses(coursesData.map((c: any) => ({ ...c, order: c.order_index })));
+                setCourses(coursesData.map((c: any) => ({
+                    ...c,
+                    imageUrl: c.image_url, // Ensure image_url is mapped
+                    order: c.order_index
+                })));
             }
 
             // Load Stages
             const { data: stagesData } = await supabase.from('stages').select('*').order('order_index');
-            if (stagesData) setStages(stagesData.map((s: any) => ({ ...s, order: s.order_index })));
+            if (stagesData) {
+                setStages(stagesData.map((s: any) => ({
+                    ...s,
+                    courseId: s.course_id, // Map snake_case to camelCase
+                    xpReward: s.xp_reward,
+                    dowdBucksReward: s.dowd_bucks_reward,
+                    order: s.order_index
+                })));
+            }
 
             // Load Modules
             const { data: modulesData } = await supabase.from('modules').select('*').order('order_index');
-            if (modulesData) setModules(modulesData.map((m: any) => ({ ...m, order: m.order_index })));
+            if (modulesData) {
+                setModules(modulesData.map((m: any) => ({
+                    ...m,
+                    stageId: m.stage_id, // Map snake_case to camelCase
+                    xpReward: m.xp_reward,
+                    dowdBucksReward: m.dowd_bucks_reward,
+                    order: m.order_index
+                })));
+            }
 
             // Load Lessons
             const { data: lessonsData, error: lessonsError } = await supabase
@@ -102,10 +128,24 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('QuizContext: Error loading lessons:', lessonsError.message, lessonsError.details);
                 if (lessonsError.message?.includes('order_index')) {
                     const { data: fallbackLessons } = await supabase.from('lessons').select('*');
-                    if (fallbackLessons) setLessons(fallbackLessons.map((l: any) => ({ ...l, order: l.order || 0 })));
+                    if (fallbackLessons) {
+                        setLessons(fallbackLessons.map((l: any) => ({
+                            ...l,
+                            courseId: l.course_id,
+                            moduleId: l.module_id,
+                            xpReward: l.xp_reward,
+                            order: l.order_index || l.order || 0
+                        })));
+                    }
                 }
             } else if (lessonsData) {
-                setLessons(lessonsData.map((l: any) => ({ ...l, order: l.order_index })));
+                setLessons(lessonsData.map((l: any) => ({
+                    ...l,
+                    courseId: l.course_id,
+                    moduleId: l.module_id,
+                    xpReward: l.xp_reward,
+                    order: l.order_index
+                })));
             }
 
             // Load Quizzes
@@ -118,10 +158,48 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('QuizContext: Error loading quizzes:', quizzesError.message, quizzesError.details);
                 if (quizzesError.message?.includes('order_index')) {
                     const { data: fallbackQuizzes } = await supabase.from('quizzes').select('*');
-                    if (fallbackQuizzes) setQuizzes(fallbackQuizzes.map((q: any) => ({ ...q, order: q.order || 0 })));
+                    if (fallbackQuizzes) {
+                        setQuizzes(fallbackQuizzes.map((q: any) => ({
+                            ...q,
+                            courseId: q.course_id,
+                            moduleId: q.module_id,
+                            projectId: q.project_id,
+                            xpReward: q.xp_reward,
+                            dowdBucksReward: q.dowd_bucks_reward, // Assuming snake_case
+                            correctOptionId: q.correct_option_id, // If stored this way at top level? No, questions are typically JSONB or separate table
+                            order: q.order || 0
+                        })));
+                    }
                 }
             } else if (quizzesData) {
-                setQuizzes(quizzesData.map((q: any) => ({ ...q, order: q.order_index })));
+                setQuizzes(quizzesData.map((q: any) => ({
+                    ...q,
+                    courseId: q.course_id,
+                    moduleId: q.module_id,
+                    projectId: q.project_id,
+                    xpReward: q.xp_reward,
+                    dowdBucksReward: q.dowd_bucks_reward || q.dowdBucksReward,
+                    order: q.order_index
+                })));
+            }
+
+            // Load Walkthroughs
+            const { data: walkthroughsData, error: walkthroughsError } = await supabase
+                .from('walkthroughs')
+                .select('*')
+                .order('order_index');
+
+            if (walkthroughsError) {
+                console.error('QuizContext: Error loading walkthroughs:', walkthroughsError.message);
+            } else if (walkthroughsData) {
+                setWalkthroughs(walkthroughsData.map((w: any) => ({
+                    ...w,
+                    courseId: w.course_id,
+                    moduleId: w.module_id,
+                    xpReward: w.xp_reward,
+                    dowdBucksReward: w.dowd_bucks_reward,
+                    order: w.order_index
+                })));
             }
 
             setIsLoading(false);
@@ -493,12 +571,15 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const original = stages.find(s => s.id === id);
         setStages(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
 
-        const { createdAt, order, courseId, ...rest } = updates;
-        const payload: any = { ...rest };
-        if (order !== undefined) payload.order_index = order;
-        if (courseId !== undefined) payload.course_id = courseId;
-        // Don't update created_at usually, but if needed:
-        if (createdAt !== undefined) payload.created_at = createdAt;
+        // Explicitly construct payload to avoid sending invalid columns (id, camelCase keys, etc.)
+        const payload: any = {};
+        if (updates.title !== undefined) payload.title = updates.title;
+        if (updates.description !== undefined) payload.description = updates.description;
+        if (updates.order !== undefined) payload.order_index = updates.order;
+        if (updates.courseId !== undefined) payload.course_id = updates.courseId;
+        if (updates.xpReward !== undefined) payload.xp_reward = updates.xpReward;
+        if (updates.dowdBucksReward !== undefined) payload.dowd_bucks_reward = updates.dowdBucksReward;
+        if (updates.createdAt !== undefined) payload.created_at = updates.createdAt;
 
         const { error } = await supabase.from('stages').update(payload).eq('id', id);
         if (error) {
@@ -510,10 +591,88 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const deleteStage = async (id: string) => {
-        const toDelete = stages.find(s => s.id === id);
+        console.log('QuizContext: deleteStage triggered for', id);
+
+        // Collect everything to delete for rollback purposes or local state updates
+        const stageToDelete = stages.find(s => s.id === id);
+        if (!stageToDelete) {
+            console.error('QuizContext: Stage not found for deletion:', id);
+            return;
+        }
+
+        const modulesToDelete = modules.filter(m => m.stageId === id);
+        const moduleIds = modulesToDelete.map(m => m.id);
+
+        const quizzesToDelete = quizzes.filter(q => q.moduleId && moduleIds.includes(q.moduleId));
+        const lessonsToDelete = lessons.filter(l => l.moduleId && moduleIds.includes(l.moduleId));
+        const walkthroughsToDelete = walkthroughs.filter(w => w.moduleId && moduleIds.includes(w.moduleId));
+
+        // 0. Collect all content IDs to clean up dependencies
+        const allContentIds = [
+            ...quizzesToDelete.map(q => q.id),
+            ...lessonsToDelete.map(l => l.id),
+            ...walkthroughsToDelete.map(w => w.id)
+        ];
+
+        // Optimistically update local state
         setStages(prev => prev.filter(s => s.id !== id));
-        const { error } = await supabase.from('stages').delete().eq('id', id);
-        if (error && toDelete) setStages(prev => [...prev, toDelete]);
+        setModules(prev => prev.filter(m => m.stageId !== id));
+        setQuizzes(prev => prev.filter(q => !q.moduleId || !moduleIds.includes(q.moduleId)));
+        setLessons(prev => prev.filter(l => !l.moduleId || !moduleIds.includes(l.moduleId)));
+        setWalkthroughs(prev => prev.filter(w => !w.moduleId || !moduleIds.includes(w.moduleId)));
+
+        try {
+            // 1. Delete Dependencies (Student Progress, Calendar Events)
+            if (allContentIds.length > 0) {
+                console.log('QuizContext: Deleting dependencies for', allContentIds.length, 'content items');
+                const [completionRes, eventRes] = await Promise.all([
+                    supabase.from('content_completion').delete().in('content_id', allContentIds),
+                    supabase.from('calendar_events').delete().in('related_id', allContentIds)
+                ]);
+
+                if (completionRes.error) console.warn('Content completion delete error:', completionRes.error.message);
+                if (eventRes.error) console.warn('Calendar events delete error:', eventRes.error.message);
+            }
+
+            // 2. Delete Content
+            if (moduleIds.length > 0) {
+                console.log('QuizContext: Deleting content for', moduleIds.length, 'modules');
+                const [qRes, lRes, wRes] = await Promise.all([
+                    supabase.from('quizzes').delete().in('module_id', moduleIds),
+                    supabase.from('lessons').delete().in('module_id', moduleIds),
+                    supabase.from('walkthroughs').delete().in('module_id', moduleIds)
+                ]);
+
+                if (qRes.error) throw new Error(`Quizzes: ${qRes.error.message}`);
+                if (lRes.error) throw new Error(`Lessons: ${lRes.error.message}`);
+                if (wRes.error) throw new Error(`Walkthroughs: ${wRes.error.message}`);
+            }
+
+            // 3. Delete Modules
+            if (moduleIds.length > 0) {
+                console.log('QuizContext: Deleting modules for stage', id);
+                const { error: mError } = await supabase.from('modules').delete().eq('stage_id', id);
+                if (mError) throw new Error(`Modules: ${mError.message}`);
+            }
+
+            // 4. Delete Stage
+            console.log('QuizContext: Deleting stage', id);
+            const { error: sError } = await supabase.from('stages').delete().eq('id', id);
+            if (sError) throw new Error(`Stage: ${sError.message}`);
+
+            console.log('QuizContext: Stage deletion successful');
+
+        } catch (error: any) {
+            console.error('QuizContext: Error deleting stage:', error);
+            // Rollback local state
+            setStages(prev => [...prev, stageToDelete]);
+            if (modulesToDelete.length > 0) setModules(prev => [...prev, ...modulesToDelete]);
+            setQuizzes(prev => [...prev, ...quizzesToDelete]);
+            setLessons(prev => [...prev, ...lessonsToDelete]);
+            setWalkthroughs(prev => [...prev, ...walkthroughsToDelete]);
+
+            alert(`Failed to delete stage: ${error.message}`);
+        }
     };
 
     const reorderStage = async (id: string, direction: 'up' | 'down') => {
@@ -579,11 +738,15 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const original = modules.find(m => m.id === id);
         setModules(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
 
-        const { createdAt, order, stageId, ...rest } = updates;
-        const payload: any = { ...rest };
-        if (order !== undefined) payload.order_index = order;
-        if (stageId !== undefined) payload.stage_id = stageId;
-        if (createdAt !== undefined) payload.created_at = createdAt;
+        // Explicitly construct payload
+        const payload: any = {};
+        if (updates.title !== undefined) payload.title = updates.title;
+        if (updates.description !== undefined) payload.description = updates.description;
+        if (updates.order !== undefined) payload.order_index = updates.order;
+        if (updates.stageId !== undefined) payload.stage_id = updates.stageId;
+        if (updates.xpReward !== undefined) payload.xp_reward = updates.xpReward;
+        if (updates.dowdBucksReward !== undefined) payload.dowd_bucks_reward = updates.dowdBucksReward;
+        if (updates.createdAt !== undefined) payload.created_at = updates.createdAt;
 
         const { error } = await supabase.from('modules').update(payload).eq('id', id);
         if (error) {
@@ -595,10 +758,72 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const deleteModule = async (id: string) => {
+        console.log('QuizContext: deleteModule triggered for', id);
         const toDelete = modules.find(m => m.id === id);
+        if (!toDelete) {
+            console.error('QuizContext: Module not found for deletion:', id);
+            return;
+        }
+
+        const quizzesToDelete = quizzes.filter(q => q.moduleId === id);
+        const lessonsToDelete = lessons.filter(l => l.moduleId === id);
+        const walkthroughsToDelete = walkthroughs.filter(w => w.moduleId === id);
+
+        // 0. Collect content IDs
+        const allContentIds = [
+            ...quizzesToDelete.map(q => q.id),
+            ...lessonsToDelete.map(l => l.id),
+            ...walkthroughsToDelete.map(w => w.id)
+        ];
+
+        // Optimistic update
         setModules(prev => prev.filter(m => m.id !== id));
-        const { error } = await supabase.from('modules').delete().eq('id', id);
-        if (error && toDelete) setModules(prev => [...prev, toDelete]);
+        setQuizzes(prev => prev.filter(q => q.moduleId !== id));
+        setLessons(prev => prev.filter(l => l.moduleId !== id));
+        setWalkthroughs(prev => prev.filter(w => w.moduleId !== id));
+
+        try {
+            // 1. Delete Dependencies (Progress, Events)
+            if (allContentIds.length > 0) {
+                console.log('QuizContext: Deleting dependencies for', allContentIds.length, 'content items');
+                const [completionRes, eventRes] = await Promise.all([
+                    supabase.from('content_completion').delete().in('content_id', allContentIds),
+                    supabase.from('calendar_events').delete().in('related_id', allContentIds)
+                ]);
+
+                if (completionRes.error) console.warn('Content completion delete error:', completionRes.error.message);
+                if (eventRes.error) console.warn('Calendar events delete error:', eventRes.error.message);
+            }
+
+            // 2. Delete Content
+            console.log('QuizContext: Deleting content for module', id);
+            const [qRes, lRes, wRes] = await Promise.all([
+                supabase.from('quizzes').delete().eq('module_id', id),
+                supabase.from('lessons').delete().eq('module_id', id),
+                supabase.from('walkthroughs').delete().eq('module_id', id)
+            ]);
+
+            if (qRes.error) throw new Error(`Quizzes: ${qRes.error.message}`);
+            if (lRes.error) throw new Error(`Lessons: ${lRes.error.message}`);
+            if (wRes.error) throw new Error(`Walkthroughs: ${wRes.error.message}`);
+
+            // 3. Delete Module
+            console.log('QuizContext: Deleting module', id);
+            const { error: mError } = await supabase.from('modules').delete().eq('id', id);
+            if (mError) throw new Error(`Module: ${mError.message}`);
+
+            console.log('QuizContext: Module deletion successful');
+
+        } catch (error: any) {
+            console.error('QuizContext: Error deleting module:', error);
+            // Rollback local state
+            setModules(prev => [...prev, toDelete]);
+            setQuizzes(prev => [...prev, ...quizzesToDelete]);
+            setLessons(prev => [...prev, ...lessonsToDelete]);
+            setWalkthroughs(prev => [...prev, ...walkthroughsToDelete]);
+
+            alert(`Failed to delete module: ${error.message}`);
+        }
     };
 
     const reorderModule = async (id: string, direction: 'up' | 'down') => {
@@ -705,9 +930,22 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const addQuiz = async (quiz: Quiz) => {
-        const { id, order, ...data } = quiz;
+        const { id, order, courseId, moduleId, projectId, xpReward, dowdBucksReward, createdAt, ...data } = quiz;
         setQuizzes(prev => [...prev, quiz]);
-        const { error } = await supabase.from('quizzes').insert({ ...data, order_index: order });
+
+        const payload = {
+            ...data,
+            id,
+            course_id: courseId,
+            module_id: moduleId,
+            project_id: projectId,
+            xp_reward: xpReward,
+            dowd_bucks_reward: dowdBucksReward,
+            order_index: order,
+            created_at: createdAt
+        };
+
+        const { error } = await supabase.from('quizzes').insert(payload);
         if (error) {
             console.error('Error adding quiz:', error);
             setQuizzes(prev => prev.filter(q => q.id !== id));
@@ -717,23 +955,56 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateQuiz = async (id: string, updates: Partial<Quiz>) => {
         const original = quizzes.find(q => q.id === id);
         setQuizzes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
-        const { error } = await supabase.from('quizzes').update({ ...updates }).eq('id', id);
+
+        const { courseId, moduleId, projectId, xpReward, dowdBucksReward, createdAt, order, ...rest } = updates;
+        const payload: any = { ...rest };
+        if (courseId !== undefined) payload.course_id = courseId;
+        if (moduleId !== undefined) payload.module_id = moduleId;
+        if (projectId !== undefined) payload.project_id = projectId;
+        if (xpReward !== undefined) payload.xp_reward = xpReward;
+        if (dowdBucksReward !== undefined) payload.dowd_bucks_reward = dowdBucksReward;
+        if (order !== undefined) payload.order_index = order;
+        if (createdAt !== undefined) payload.created_at = createdAt;
+
+        const { error } = await supabase.from('quizzes').update(payload).eq('id', id);
         if (error && original) setQuizzes(prev => prev.map(q => q.id === id ? original : q));
     };
 
     const deleteQuiz = async (id: string) => {
         const original = quizzes.find(q => q.id === id);
         setQuizzes(prev => prev.filter(q => q.id !== id));
+
+        // Delete dependencies first
+        await Promise.all([
+            supabase.from('content_completion').delete().eq('content_id', id),
+            supabase.from('calendar_events').delete().eq('related_id', id)
+        ]);
+
         const { error } = await supabase.from('quizzes').delete().eq('id', id);
-        if (error && original) setQuizzes(prev => [...prev, original]);
+        if (error && original) {
+            console.error('Error deleting quiz:', error);
+            setQuizzes(prev => [...prev, original]);
+            alert(`Failed to delete quiz: ${error.message}`);
+        }
     };
 
     const reorderQuiz = async (id: string, direction: 'up' | 'down') => reorderItem(id, 'quiz', direction);
 
     const addLesson = async (lesson: Lesson) => {
-        const { id, order, ...data } = lesson;
+        const { id, order, courseId, moduleId, xpReward, createdAt, ...data } = lesson;
         setLessons(prev => [...prev, lesson]);
-        const { error } = await supabase.from('lessons').insert({ ...data, order_index: order });
+
+        const payload = {
+            ...data,
+            id,
+            course_id: courseId,
+            module_id: moduleId,
+            xp_reward: xpReward,
+            order_index: order,
+            created_at: createdAt
+        };
+
+        const { error } = await supabase.from('lessons').insert(payload);
         if (error) {
             console.error('Error adding lesson:', error);
             setLessons(prev => prev.filter(l => l.id !== id));
@@ -743,21 +1014,53 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateLesson = async (id: string, updates: Partial<Lesson>) => {
         const original = lessons.find(l => l.id === id);
         setLessons(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
-        const { error } = await supabase.from('lessons').update({ ...updates }).eq('id', id);
+
+        const { courseId, moduleId, xpReward, createdAt, order, ...rest } = updates;
+        const payload: any = { ...rest };
+        if (courseId !== undefined) payload.course_id = courseId;
+        if (moduleId !== undefined) payload.module_id = moduleId;
+        if (xpReward !== undefined) payload.xp_reward = xpReward;
+        if (order !== undefined) payload.order_index = order;
+        if (createdAt !== undefined) payload.created_at = createdAt;
+
+        const { error } = await supabase.from('lessons').update(payload).eq('id', id);
         if (error && original) setLessons(prev => prev.map(l => l.id === id ? original : l));
     };
 
     const deleteLesson = async (id: string) => {
         const original = lessons.find(l => l.id === id);
         setLessons(prev => prev.filter(l => l.id !== id));
+
+        // Delete dependencies first
+        await Promise.all([
+            supabase.from('content_completion').delete().eq('content_id', id),
+            supabase.from('calendar_events').delete().eq('related_id', id)
+        ]);
+
         const { error } = await supabase.from('lessons').delete().eq('id', id);
-        if (error && original) setLessons(prev => [...prev, original]);
+        if (error && original) {
+            console.error('Error deleting lesson:', error);
+            setLessons(prev => [...prev, original]);
+            alert(`Failed to delete lesson: ${error.message}`);
+        }
     };
 
     const addWalkthrough = async (walkthrough: Walkthrough) => {
-        const { id, order, ...data } = walkthrough;
+        const { id, order, courseId, moduleId, xpReward, dowdBucksReward, createdAt, ...data } = walkthrough;
         setWalkthroughs(prev => [...prev, walkthrough]);
-        const { error } = await supabase.from('walkthroughs').insert({ ...data, order_index: order });
+
+        const payload = {
+            ...data,
+            id,
+            course_id: courseId,
+            module_id: moduleId,
+            xp_reward: xpReward,
+            dowd_bucks_reward: dowdBucksReward,
+            order_index: order,
+            created_at: createdAt
+        };
+
+        const { error } = await supabase.from('walkthroughs').insert(payload);
         if (error) {
             console.error('Error adding walkthrough:', error);
             setWalkthroughs(prev => prev.filter(w => w.id !== id));
@@ -767,15 +1070,36 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateWalkthrough = async (id: string, updates: Partial<Walkthrough>) => {
         const original = walkthroughs.find(w => w.id === id);
         setWalkthroughs(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
-        const { error } = await supabase.from('walkthroughs').update({ ...updates }).eq('id', id);
+
+        const { courseId, moduleId, xpReward, dowdBucksReward, createdAt, order, ...rest } = updates;
+        const payload: any = { ...rest };
+        if (courseId !== undefined) payload.course_id = courseId;
+        if (moduleId !== undefined) payload.module_id = moduleId;
+        if (xpReward !== undefined) payload.xp_reward = xpReward;
+        if (dowdBucksReward !== undefined) payload.dowd_bucks_reward = dowdBucksReward;
+        if (order !== undefined) payload.order_index = order;
+        if (createdAt !== undefined) payload.created_at = createdAt;
+
+        const { error } = await supabase.from('walkthroughs').update(payload).eq('id', id);
         if (error && original) setWalkthroughs(prev => prev.map(w => w.id === id ? original : w));
     };
 
     const deleteWalkthrough = async (id: string) => {
         const original = walkthroughs.find(w => w.id === id);
         setWalkthroughs(prev => prev.filter(w => w.id !== id));
+
+        // Delete dependencies first
+        await Promise.all([
+            supabase.from('content_completion').delete().eq('content_id', id),
+            supabase.from('calendar_events').delete().eq('related_id', id)
+        ]);
+
         const { error } = await supabase.from('walkthroughs').delete().eq('id', id);
-        if (error && original) setWalkthroughs(prev => [...prev, original]);
+        if (error && original) {
+            console.error('Error deleting walkthrough:', error);
+            setWalkthroughs(prev => [...prev, original]);
+            alert(`Failed to delete walkthrough: ${error.message}`);
+        }
     };
 
     const reorderCourse = async (id: string, direction: 'up' | 'down') => {

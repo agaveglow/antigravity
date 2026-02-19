@@ -9,7 +9,7 @@ interface BadgeAttachmentProps {
     entityName?: string;
 }
 
-const BadgeAttachment: React.FC<BadgeAttachmentProps> = ({ entityType, entityId, entityName }) => {
+const BadgeAttachment: React.FC<BadgeAttachmentProps> = ({ entityType, entityId }) => {
     const { badges, getBadgesForEntity, attachBadge, detachBadge, badgeAttachments } = useBadges();
     const [isAttaching, setIsAttaching] = React.useState(false);
     const [selectedBadgeId, setSelectedBadgeId] = React.useState('');

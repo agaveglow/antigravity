@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuizzes } from '../context/QuizContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 import { useLanguage } from '../context/LanguageContext';
 import BadgeAttachment from '../components/BadgeAttachment';
 import {
@@ -67,6 +68,31 @@ const TeacherQuizzes: React.FC = () => {
     const [selectedFilterLevel, setSelectedFilterLevel] = useState<string>('');
     const [selectedFilterSubject, setSelectedFilterSubject] = useState<string>('');
 
+    // Delete Confirmation State
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{
+        isOpen: boolean;
+        type: 'course' | 'stage' | 'module' | 'quiz' | 'lesson' | 'walkthrough';
+        id: string;
+        title: string;
+    }>({ isOpen: false, type: 'course', id: '', title: '' });
+
+    const openDeleteConfirm = (type: 'course' | 'stage' | 'module' | 'quiz' | 'lesson' | 'walkthrough', id: string, title: string) => {
+        setDeleteConfirmation({ isOpen: true, type, id, title });
+    };
+
+    const confirmDelete = () => {
+        const { type, id } = deleteConfirmation;
+        switch (type) {
+            case 'course': deleteCourse(id); break;
+            case 'stage': deleteStage(id); break;
+            case 'module': deleteModule(id); break;
+            case 'quiz': deleteQuiz(id); break;
+            case 'lesson': deleteLesson(id); break;
+            case 'walkthrough': deleteWalkthrough(id); break;
+        }
+        setDeleteConfirmation({ ...deleteConfirmation, isOpen: false });
+    };
+
     // --- Course Management ---
 
     const handleCreateCourse = () => {
@@ -125,8 +151,9 @@ const TeacherQuizzes: React.FC = () => {
     };
 
     const handleDeleteStage = (id: string) => {
-        if (window.confirm('Delete stage? This will remove all modules and content within it.')) {
-            deleteStage(id);
+        const stage = stages.find(s => s.id === id);
+        if (stage) {
+            openDeleteConfirm('stage', id, stage.title);
         }
     };
 
@@ -173,8 +200,9 @@ const TeacherQuizzes: React.FC = () => {
     };
 
     const handleDeleteModule = (id: string) => {
-        if (window.confirm('Delete module? This will remove all content within it.')) {
-            deleteModule(id);
+        const module = modules.find(m => m.id === id);
+        if (module) {
+            openDeleteConfirm('module', id, module.title);
         }
     };
 
@@ -198,8 +226,9 @@ const TeacherQuizzes: React.FC = () => {
     };
 
     const handleDeleteCourse = (id: string) => {
-        if (window.confirm(t('teacher.quizzes.deleteConfirm'))) {
-            deleteCourse(id);
+        const course = courses.find(c => c.id === id);
+        if (course) {
+            openDeleteConfirm('course', id, course.title);
         }
     };
 
@@ -341,9 +370,8 @@ const TeacherQuizzes: React.FC = () => {
     };
 
     const handleDeleteWalkthrough = (id: string) => {
-        if (window.confirm('Delete this walkthrough?')) {
-            deleteWalkthrough(id);
-        }
+        const w = walkthroughs.find(i => i.id === id);
+        if (w) openDeleteConfirm('walkthrough', id, w.title);
     };
 
 
@@ -720,13 +748,48 @@ const TeacherQuizzes: React.FC = () => {
                         <Button variant="outline" onClick={handleAddQuestion} style={{ borderStyle: 'dashed' }}><Plus size={18} /> {t('teacher.quizzes.addQuestion')}</Button>
                     </div>
                 </div>
-            </PageTransition >
+
+                {/* Delete Confirmation Modal */}
+                <Modal
+                    isOpen={deleteConfirmation.isOpen}
+                    onClose={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}
+                    title={`Delete ${deleteConfirmation.type.charAt(0).toUpperCase() + deleteConfirmation.type.slice(1)}`}
+                >
+                    <div>
+                        <p>Are you sure you want to delete <strong>{deleteConfirmation.title}</strong>?</p>
+                        <p style={{ color: 'var(--color-danger)', fontSize: '0.9rem' }}>
+                            This action cannot be undone. All related content will also be permanently deleted.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                            <Button variant="outline" onClick={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={confirmDelete}
+                                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+            </PageTransition>
         );
     }
 
     // 4. Course Details (Hierarchy View: Stages -> Modules -> Content)
     if (selectedCourseId) {
         const course = courses.find(c => c.id === selectedCourseId);
+
+        if (!course) {
+            return (
+                <div style={{ padding: '2rem' }}>
+                    <p>Course not found.</p>
+                    <Button onClick={() => setSelectedCourseId(null)}>Back to Courses</Button>
+                </div>
+            );
+        }
         const courseStages = stages.filter(s => s.courseId === selectedCourseId).sort((a, b) => a.order - b.order);
 
         // Helper to get modules for a stage
@@ -776,9 +839,9 @@ const TeacherQuizzes: React.FC = () => {
                             else { setEditingLesson(item as Lesson); setIsEditingLesson(true); }
                         }}><Edit3 size={16} /></Button>
                         <Button size="sm" variant="ghost" onClick={() => {
-                            if (item.itemType === 'quiz') deleteQuiz(item.id);
+                            if (item.itemType === 'quiz') openDeleteConfirm('quiz', item.id, item.title);
                             else if (item.itemType === 'walkthrough') handleDeleteWalkthrough(item.id);
-                            else deleteLesson(item.id);
+                            else openDeleteConfirm('lesson', item.id, item.title);
                         }} style={{ color: 'var(--color-danger)' }}><Trash2 size={16} /></Button>
                     </div>
                 </div>
@@ -825,7 +888,7 @@ const TeacherQuizzes: React.FC = () => {
                                                 color: 'white',
                                                 fontWeight: 600
                                             }}>
-                                                {course.level === 'level_2' ? 'Level 2' : course.level === 'level_3a' ? 'Level 3 First Year' : 'Level 3 Second Year'}
+                                                {course.level === 'Level 2' ? 'Level 2' : course.level === 'Level 3A' ? 'Level 3 First Year' : 'Level 3 Second Year'}
                                             </span>
                                         )}
                                         {course?.subject && (
@@ -944,6 +1007,32 @@ const TeacherQuizzes: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Delete Confirmation Modal */}
+                <Modal
+                    isOpen={deleteConfirmation.isOpen}
+                    onClose={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}
+                    title={`Delete ${deleteConfirmation.type.charAt(0).toUpperCase() + deleteConfirmation.type.slice(1)}`}
+                >
+                    <div>
+                        <p>Are you sure you want to delete <strong>{deleteConfirmation.title}</strong>?</p>
+                        <p style={{ color: 'var(--color-danger)', fontSize: '0.9rem' }}>
+                            This action cannot be undone. All related content (modules, lessons, quizzes) will also be permanently deleted.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                            <Button variant="outline" onClick={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={confirmDelete}
+                                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
             </PageTransition>
         );
     }
@@ -1024,9 +1113,6 @@ const TeacherQuizzes: React.FC = () => {
                                 <div style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
                                     <RichTextViewer content={course.description} />
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-                                    {t('teacher.quizzes.quizCount').replace('{count}', quizzes.filter(q => q.courseId === course.id).length.toString())} • {t('teacher.quizzes.lessonCount').replace('{count}', (lessons?.filter(l => l.courseId === course.id).length || 0).toString())}
-                                </div>
                             </Card>
                         ))}
 
@@ -1043,13 +1129,37 @@ const TeacherQuizzes: React.FC = () => {
                             </div>
                             <h2 style={{ fontSize: '1.2rem', margin: '0 0 0.5rem' }}>{t('teacher.quizzes.uncategorized')}</h2>
                             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>{t('teacher.quizzes.uncategorizedDesc')}</p>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-                                {t('teacher.quizzes.quizCount').replace('{count}', quizzes.filter(q => !q.courseId).length.toString())}
-                            </div>
                         </Card>
                     )}
                 </div>
             </div>
+
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={deleteConfirmation.isOpen}
+                onClose={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}
+                title={`Delete ${deleteConfirmation.type.charAt(0).toUpperCase() + deleteConfirmation.type.slice(1)}`}
+            >
+                <div>
+                    <p>Are you sure you want to delete <strong>{deleteConfirmation.title}</strong>?</p>
+                    <p style={{ color: 'var(--color-danger)', fontSize: '0.9rem' }}>
+                        This action cannot be undone. All related content (modules, lessons, quizzes) will also be permanently deleted.
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                        <Button variant="outline" onClick={() => setDeleteConfirmation({ ...deleteConfirmation, isOpen: false })}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={confirmDelete}
+                            style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                        >
+                            Delete
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </PageTransition>
     );
 };

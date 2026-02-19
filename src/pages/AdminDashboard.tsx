@@ -5,7 +5,6 @@ import { Search, Plus, User, Shield, Mail, X, Lock, RefreshCw, Trash2, AlertCirc
 import PageTransition from '../components/common/PageTransition';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
-import CohortProgressWidget from '../components/dashboard/CohortProgressWidget';
 
 interface StaffMember {
     id: string;
@@ -65,7 +64,7 @@ const AdminDashboard: React.FC = () => {
             })));
         } catch (error: any) {
             console.error('Error loading staff:', error);
-            alert('Failed to load staff members');
+            // alert('Failed to load staff members');
         } finally {
             setIsLoading(false);
         }
@@ -253,10 +252,6 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Student Progress Monitoring */}
-                <div style={{ marginBottom: '24px' }}>
-                    <CohortProgressWidget />
-                </div>
 
                 {showUnlockPrompt && (
                     <Card style={{ marginBottom: '24px', border: '1px solid var(--color-brand-orange)', background: 'rgba(255, 159, 10, 0.05)' }}>

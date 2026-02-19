@@ -23,7 +23,10 @@
     z-index: 100;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    overflow: hidden;
     white-space: nowrap;
+    will-change: width;
+    /* Optimization hint for browser */
 }
 
 .sidebar:hover {
@@ -78,7 +81,6 @@
 
 .nav-item span {
     opacity: 0;
-    width: 0;
     display: none;
     /* simple hide for layout */
     transition: opacity 0.2s ease;
@@ -87,8 +89,10 @@
 .sidebar:hover .nav-item span {
     display: block;
     opacity: 1;
-    width: auto;
-    animation: fadeIn 0.3s ease forwards;
+    /* width: auto; Removed to avoid layout animation */
+    /* animation: fadeIn 0.3s ease forwards; Removed to reduce paint cost */
+    transition: opacity 0.2s ease 0.1s;
+    /* Add delay so it appears only after width starts expanding */
 }
 
 @keyframes fadeIn {
@@ -181,7 +185,8 @@
     padding: 0 var(--space-6);
     border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
     position: relative;
-    z-index: 50; /* Ensure top bar sits above content scroll area */
+    z-index: 50;
+    /* Ensure top bar sits above content scroll area */
 }
 
 .page-title {
