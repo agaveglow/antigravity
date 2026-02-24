@@ -233,20 +233,22 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const deleteStudent = async (id: string) => {
-        const studentToUpdate = students.find(s => s.id === id);
+        const studentToDelete = students.find(s => s.id === id);
+        if (!studentToDelete) return;
 
-        // Optimistic update
-        setStudents(prev => prev.map(s => s.id === id ? { ...s, status: 'Inactive' as StudentStatus } : s));
+        // Optimistic update: remove from local list immediately
+        setStudents(prev => prev.filter(s => s.id !== id));
 
         try {
-            const { error } = await supabase.from('profiles').update({ status: 'Inactive' }).eq('id', id);
+            // Hard delete from database
+            const { error } = await supabase.from('profiles').delete().eq('id', id);
             if (error) throw error;
+            console.log(`StudentsContext: Student ${id} deleted from database.`);
         } catch (error: any) {
             console.error('Error deleting student:', error);
-            // Revert on error
-            if (studentToUpdate) {
-                setStudents(prev => prev.map(s => s.id === id ? studentToUpdate : s));
-            }
+            // Revert local state on error
+            setStudents(prev => [...prev, studentToDelete]);
+            alert(`Failed to delete student: ${error.message}`);
         }
     };
 

@@ -129,7 +129,8 @@ const ManageStudents: React.FC = () => {
         const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             student.username.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCohort = selectedLevel === 'All' || student.cohort === selectedLevel;
-        return matchesSearch && matchesCohort;
+        const isActive = student.status === 'Active';
+        return matchesSearch && matchesCohort && isActive;
     });
 
     // Stats
@@ -354,7 +355,7 @@ const ManageStudents: React.FC = () => {
                                                                 // Reset password will now just open the modal to set a new one
                                                                 openEditModal(student);
                                                             } else if (action === 'delete') {
-                                                                if (window.confirm(t('teacher.students.alert.deleteConfirm').replace('{name}', student.name))) {
+                                                                if (window.confirm(`Warning: Are you sure you want to permanently delete ${student.name} from the database? This action cannot be undone and will remove all student data.`)) {
                                                                     deleteStudent(student.id);
                                                                 }
                                                             }
