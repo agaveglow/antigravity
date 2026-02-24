@@ -112,16 +112,26 @@ export interface Module {
   createdAt: string;
 }
 
+export interface CourseFolder {
+  id: string;
+  title: string;
+  description?: string;
+  color?: string;
+  orderIndex: number;
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   title: string;
   description: string;
-  imageUrl?: string; // Optional cover image
-  color?: string; // Hex code for theme
-  level?: UALCohort; // e.g. "Level 3A"
-  subject?: 'music' | 'performing_arts'; // Matches UserProfile.department
+  imageUrl?: string;
+  color?: string;
+  level?: UALCohort;
+  subject?: 'music' | 'performing_arts';
   published?: boolean;
-  order?: number; // For sorting
+  order?: number;
+  folderId?: string; // Link to CourseFolder
   createdAt: string;
 }
 

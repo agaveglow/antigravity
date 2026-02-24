@@ -516,8 +516,8 @@ const Calendar: React.FC = () => {
                         style={{
                             minHeight: isMobile ? '80px' : '120px',
                             padding: isMobile ? '8px' : '10px',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            background: isToday(day) ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
+                            border: isToday(day) ? '2px solid var(--primary-color)' : '1px solid rgba(255, 255, 255, 0.05)',
+                            background: isToday(day) ? 'rgba(255, 159, 10, 0.15)' : 'transparent',
                             position: 'relative',
                             transition: 'all 0.2s',
                             cursor: 'pointer',

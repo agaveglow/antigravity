@@ -24,7 +24,6 @@ import DowdBucksStore from './pages/DowdBucksStore';
 import AssessmentHub from './pages/AssessmentHub';
 import AssessmentView from './pages/AssessmentView';
 import AcademicYearSetup from './pages/AcademicYearSetup';
-import QualityAssurance from './pages/QualityAssurance';
 import Support from './pages/Support';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
@@ -34,14 +33,14 @@ import Calendar from './pages/Calendar';
 import Diagnostic from './pages/Diagnostic';
 import Inventory from './pages/Inventory';
 import Timetable from './pages/Timetable';
-import BookingAndLoans from './pages/BookingAndLoans';
 import SetSecurePassword from './pages/SetSecurePassword';
 
 import { AchievementsProvider } from './context/AchievementsContext';
 import { BadgeProvider } from './context/BadgeContext';
 import StudentAchievements from './pages/StudentAchievements';
-import TeacherAchievements from './pages/TeacherAchievements';
-import BadgeManagement from './pages/BadgeManagement';
+import { lazy } from 'react';
+const AchievementsAndBadges = lazy(() => import('./pages/AchievementsAndBadges'));
+const BookingAndLoans = lazy(() => import('./pages/BookingAndLoans'));
 import { ResourceProvider } from './context/ResourceContext';
 import { ERCProvider } from './context/ERCContext';
 import ERCRecordsHub from './pages/ERCRecords/ERCRecordsHub';
@@ -119,8 +118,8 @@ function App() {
                                           <Route path="students/:id" element={<StudentProfileView />} />
                                           <Route path="projects" element={<ProjectManagement />} />
                                           <Route path="quizzes" element={<TeacherQuizzes />} />
-                                          <Route path="achievements" element={<TeacherAchievements />} />
-                                          <Route path="badges" element={<BadgeManagement />} />
+                                          <Route path="achievements" element={<AchievementsAndBadges />} />
+                                          <Route path="badges" element={<Navigate to="/teacher/achievements" replace />} />
                                           <Route path="resources" element={<BookingAndLoans />} />
                                           {/* Redirects for old routes */}
                                           <Route path="booking" element={<Navigate to="/teacher/resources" replace />} />
@@ -128,7 +127,6 @@ function App() {
                                           <Route path="assessment" element={<AssessmentHub />} />
                                           <Route path="assessment/:submissionId" element={<AssessmentView />} />
                                           <Route path="setup" element={<AcademicYearSetup />} />
-                                          <Route path="qa" element={<QualityAssurance />} />
                                           <Route path="progress" element={<StudentProgressDashboard />} /> {/* Added */}
                                           <Route path="*" element={<Navigate to="/teacher" replace />} />
                                         </Route>
@@ -139,7 +137,7 @@ function App() {
                                       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                                         <Route path="/admin" element={<Layout />}>
                                           <Route index element={<AdminDashboard />} />
-                                          <Route path="badges" element={<BadgeManagement />} />
+                                          <Route path="badges" element={<AchievementsAndBadges />} />
                                           <Route path="progress" element={<StudentProgressDashboard />} />
                                         </Route>
                                       </Route>

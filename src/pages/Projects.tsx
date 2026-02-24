@@ -16,7 +16,8 @@ const Projects: React.FC = () => {
     const { t } = useLanguage();
 
     const activeProjects = getProjectsByCohort(
-        user?.cohort || 'Level 3A'
+        user?.cohort || 'Level 3A',
+        user?.department as any
     ).filter(p => p.published !== false);
 
     return (

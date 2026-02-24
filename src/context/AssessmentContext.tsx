@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useUser } from './UserContext';
 
 export interface ProjectAssessment {
     id: string;
@@ -45,9 +46,16 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setIsLoading(false);
     };
 
+    const { user } = useUser();
+
     useEffect(() => {
-        loadAssessments();
-    }, []);
+        if (user) {
+            loadAssessments();
+        } else {
+            setProjectAssessments([]);
+            setIsLoading(false);
+        }
+    }, [user]);
 
     const saveProjectGrade = async (studentId: string, projectId: string, grade: string, feedback: string) => {
         const dbPayload: any = {

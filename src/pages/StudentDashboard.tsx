@@ -9,9 +9,10 @@ import { useSubmissions } from '../context/SubmissionContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useNavigate } from 'react-router-dom';
-import { Star, Clock, ChevronRight, Music, Sliders, Headphones, Calendar, Guitar, BookOpen, FolderOpen, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react';
+import { Star, Clock, ChevronRight, Music, Sliders, Headphones, Calendar, Guitar, BookOpen, FolderOpen, ChevronDown, ChevronUp, ShoppingBag, Heart } from 'lucide-react';
 import Avatar from '../components/common/Avatar';
 import WeeklyCalendarWidget from '../components/WeeklyCalendarWidget';
+import EventsWidget from '../components/dashboard/EventsWidget';
 import Modal from '../components/common/Modal';
 import Metronome from '../components/tools/Metronome';
 import Tuner from '../components/tools/Tuner';
@@ -221,7 +222,7 @@ const StudentDashboard: React.FC = () => {
             <div className="dashboard-grid student-dashboard-layout">
 
                 {/* Quick Navigation Cards */}
-                <div className="nav-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-6)' }}>
+                <div className="nav-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-6)' }}>
                     <Card
                         elevated
                         hover
@@ -353,6 +354,39 @@ const StudentDashboard: React.FC = () => {
                         <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>My Progress</h3>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Track your performance</p>
                     </Card>
+
+                    <Card
+                        elevated
+                        hover
+                        style={{
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: 'var(--space-6)',
+                            minHeight: '160px',
+                            background: 'linear-gradient(135deg, var(--bg-surface), rgba(255, 59, 48, 0.05))'
+                        }}
+                        onClick={() => navigate('/support')}
+                    >
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'rgba(255, 59, 48, 0.1)',
+                            color: 'var(--color-error)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <Heart size={28} />
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>Safeguarding</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Help & Support</p>
+                    </Card>
                 </div>
 
                 {/* Active Projects */}
@@ -461,10 +495,39 @@ const StudentDashboard: React.FC = () => {
 
 
 
-            {/* Bottom Section: Weekly Calendar (Full Width) */}
-            <div style={{ marginTop: 'var(--space-8)' }}>
-                <WeeklyCalendarWidget />
+            {/* Bottom Section: Weekly Calendar & Events */}
+            <div className="dashboard-bottom-grid" style={{ marginTop: 'var(--space-8)' }}>
+                {/* Events Widget */}
+                <div>
+                    <EventsWidget />
+                </div>
+                {/* Weekly Calendar */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <WeeklyCalendarWidget />
+                </div>
             </div>
+
+            <style>{`
+                @media (max-width: 1100px) {
+                    .dashboard-header-grid {
+                        grid-template-columns: 1fr !important;
+                        text-align: center;
+                    }
+                    .dashboard-header-grid > :nth-child(2) {
+                        order: -1;
+                    }
+                    .dashboard-bottom-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+                .dashboard-bottom-grid {
+                    display: grid;
+                    grid-template-columns: 350px 1fr;
+                    gap: var(--space-8);
+                    align-items: stretch;
+                }
+            `}</style>
+
             {/* Tool Modals */}
             {tools.map(tool => tool.component && (
                 <Modal key={tool.id} isOpen={activeTool === tool.id} onClose={() => setActiveTool(null)}>

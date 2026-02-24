@@ -91,6 +91,10 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         if (user) {
             loadStudents();
+        } else {
+            setStudents([]);
+            setIsLoading(false);
+            return;
         }
 
         // Subscription
@@ -101,7 +105,7 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return () => {
             supabase.removeChannel(profilesChannel).catch(() => { });
         };
-    }, [user, role]); // Re-load when user (and their department) is loaded
+    }, [user, role]);
 
     const addStudent = async (student: Student) => {
         // Direct profile creation (old method, kept for compatibility if needed)

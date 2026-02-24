@@ -227,9 +227,9 @@ const AdminDashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <div>
                         <h1 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Shield className="text-primary" /> Staff Management
+                            <Shield className="text-primary" /> Welcome, {currentUser?.name?.split(' ')[0] || 'Admin'}
                         </h1>
-                        <p className="text-secondary text-sm">Create and manage teacher and administrator accounts</p>
+                        <p className="text-secondary text-sm">Staff Management - Create and manage teacher and administrator accounts</p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
                         {isRevealed && (

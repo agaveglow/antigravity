@@ -57,59 +57,48 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Profile fetching helper
     const fetchProfile = async (userId: string) => {
+        const start = performance.now();
         console.log('Fetching profile for:', userId);
 
-        const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
-            setTimeout(() => reject(new Error('TIMEOUT')), 30000)
-        );
-
         try {
-            console.log('Connecting to Supabase (PostgREST)...');
-            // Try fetching with explicit columns to optimize and avoid mapping issues
-            const { data, error } = await Promise.race([
-                supabase.from('profiles')
-                    .select('id, name, username, avatar, theme_preference, balance, inventory, cohort, xp, department, is_first_login, role')
-                    .eq('id', userId)
-                    .single(),
-                timeoutPromise
-            ]);
+            // Fetch everything in one go. If columns change, we handle it gracefully.
+            const { data, error } = await supabase.from('profiles')
+                .select('id, name, username, avatar, theme_preference, balance, inventory, cohort, xp, department, is_first_login, role')
+                .eq('id', userId)
+                .single();
 
             if (error) {
-                console.error('UserContext: Error fetching profile:', error.message, error.details);
-                // alert(`Profile Error: ${error.message} (Check Console)`); // Removed blocking alert
+                console.error('UserContext: Error fetching profile:', error.message);
 
-                // If the error is a column mismatch (400), try fetching a minimal profile
-                if (error.message?.includes('column') || error.code === 'PGRST116') {
-                    console.warn('UserContext: Column mismatch detected or profile missing. Retrying with minimal fields.');
-                    const { data: minimalData, error: minimalError } = await supabase
+                // Fallback for column mismatch
+                if (error.message?.includes('column')) {
+                    const { data: minimalData } = await supabase
                         .from('profiles')
                         .select('id, name, role, is_first_login, department')
                         .eq('id', userId)
                         .single();
 
-                    if (minimalError) {
-                        console.error('UserContext: Minimal profile fetch also failed:', minimalError.message);
-                        // alert(`Critical: Could not load profile. ${minimalError.message}`); // Removed blocking alert
-                        return null;
+                    if (minimalData) {
+                        return {
+                            ...minimalData,
+                            username: userId,
+                            avatar: null,
+                            theme_preference: 'dark',
+                            balance: 0,
+                            inventory: [],
+                            cohort: 'None',
+                            xp: 0
+                        };
                     }
-                    console.log('UserContext: Successfully fetched minimal profile');
-                    return minimalData;
                 }
                 return null;
             }
-            if (!data) {
-                console.error('UserContext: Profile not found for ID:', userId);
-                // alert('Profile not found in database. Contact admin.'); // Removed blocking alert
-            }
+
+            const end = performance.now();
+            console.log(`UserContext: Profile fetched in ${(end - start).toFixed(2)}ms`);
             return data;
-        } catch (e: any) {
-            if (e.message === 'TIMEOUT') {
-                console.warn('⚡ Profile fetch timed out (30s). Check for ad-blockers or slow network.');
-                // alert('Connection timed out loading profile. Please refresh.'); // Removed blocking alert
-            } else {
-                console.error('Exception in fetchProfile:', e);
-                // alert(`Unexpected error loading profile: ${e.message}`); // Removed blocking alert
-            }
+        } catch (e) {
+            console.error('Exception in fetchProfile:', e);
             return null;
         }
     };
@@ -153,11 +142,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(mappedUser);
                 setRole((profile.role as UserRole) || (session.user.user_metadata?.role as UserRole) || 'student');
                 console.log('User initialized successfully');
+            } else {
+                console.warn('UserContext: Profile not found for session user. Setting partial user.');
+                // Create a partial user to allow Login.tsx to handle the "missing profile" state
+                const partialUser: any = {
+                    id: session.user.id,
+                    name: session.user.user_metadata?.full_name || 'User',
+                    username: session.user.email?.split('@')[0] || 'user',
+                    themePreference: 'dark',
+                    isFirstLogin: false,
+                    language: 'en-gb'
+                };
+                setUser(partialUser);
+                setRole(null); // Explicitly set role to null so Login.tsx knows there's a problem
             }
         } catch (error) {
             console.error('Error during user initialization:', error);
         } finally {
             if (initializingUserId.current === session.user.id) {
+                console.log('UserContext: initialization complete, setting isLoading to false');
                 setIsLoading(false);
             }
         }
@@ -169,15 +172,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const init = async () => {
             try {
-                // 1. Get initial session immediately
                 const { data: { session } } = await supabase.auth.getSession();
+                console.log('UserContext init: session found:', !!session);
                 if (mounted && session) {
                     await initializeUser(session);
                 } else if (mounted && !session) {
                     setIsLoading(false);
                 }
             } catch (error) {
-                console.error('Error in init:', error);
+                console.error('Error in UserContext init:', error);
                 if (mounted) setIsLoading(false);
             }
         };
@@ -187,17 +190,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 3. Fail-safe timer: Force stop loading after 5 seconds no matter what
         const failSafeTimer = setTimeout(() => {
             if (mounted) {
-                console.warn('🕒 Loading Fail-safe triggered: Forcing isLoading to false after 5s.');
+                console.warn('🕒 Loading Fail-safe triggered: Forcing isLoading to false after 20s.');
                 setIsLoading(false);
             }
-        }, 5000);
+        }, 20000);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth state changed:', event);
             if (!mounted) return;
 
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-                if (session) await initializeUser(session);
+                if (session) {
+                    // Don't await initializeUser to avoid blocking the auth state transition
+                    initializeUser(session).catch(err => console.error('Error initializing user after event:', err));
+                }
             } else if (event === 'SIGNED_OUT') {
                 initializingUserId.current = null;
                 setUser(null);
@@ -239,19 +245,33 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; requires2FA?: boolean; firstLogin?: boolean }> => {
         console.log('Login attempt started for:', email);
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            // Add a deadline for the auth call
+            const authPromise = supabase.auth.signInWithPassword({
                 email,
                 password,
             });
-            console.log('signInWithPassword call finished. Error:', error?.message || 'none');
+
+            const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+                setTimeout(() => reject(new Error('Authentication service timeout (30s)')), 30000)
+            );
+
+            console.log('UserContext: Waiting for Supabase signInWithPassword...');
+            const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any;
+            console.log('UserContext: signInWithPassword call finished. Success:', !!data?.user, 'Error:', error?.message || 'none');
 
             if (error) {
                 return { success: false, error: error.message };
             }
 
+            // Immediately check if we have a session. If so, start initializing but don't block the return.
+            if (data?.session) {
+                console.log('UserContext: Login success, triggering non-blocking initializeUser');
+                initializeUser(data.session).catch(e => console.error('Async init failed:', e));
+            }
+
             return { success: true };
         } catch (e: any) {
-            console.error('Exception in login:', e);
+            console.error('UserContext: Exception in login:', e);
             return { success: false, error: e.message || 'Authentication service error' };
         }
     };

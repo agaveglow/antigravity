@@ -35,12 +35,16 @@ const BookingAndLoans: React.FC = () => {
     const [isEditEquipmentModalOpen, setIsEditEquipmentModalOpen] = useState(false);
     const [editName, setEditName] = useState('');
     const [editCategory, setEditCategory] = useState<Equipment['category']>('Other');
+    const [editLabel, setEditLabel] = useState('');
+    const [editImageUrl, setEditImageUrl] = useState('');
     const [editTotalQty, setEditTotalQty] = useState(1);
 
     // Add Equipment State
     const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
     const [newItemName, setNewItemName] = useState('');
     const [newItemCategory, setNewItemCategory] = useState<Equipment['category']>('Other');
+    const [newItemLabel, setNewItemLabel] = useState('');
+    const [newItemImageUrl, setNewItemImageUrl] = useState('');
     const [newItemQty, setNewItemQty] = useState(1);
 
     // Add Studio State
@@ -65,12 +69,18 @@ const BookingAndLoans: React.FC = () => {
     const handleAddEquipment = () => {
         addEquipment({
             name: newItemName,
+            label: newItemLabel || undefined,
+            imageUrl: newItemImageUrl || undefined,
             category: newItemCategory,
             totalQty: newItemQty,
-            availableQty: newItemQty
+            availableQty: newItemQty,
+            logs: []
         });
         setIsAddEquipmentModalOpen(false);
         setNewItemName('');
+        setNewItemCategory('Other');
+        setNewItemLabel('');
+        setNewItemImageUrl('');
         setNewItemQty(1);
     };
 
@@ -119,6 +129,8 @@ const BookingAndLoans: React.FC = () => {
         setSelectedItem(item);
         setEditName(item.name);
         setEditCategory(item.category);
+        setEditLabel(item.label || '');
+        setEditImageUrl(item.imageUrl || '');
         setEditTotalQty(item.totalQty);
         setIsEditEquipmentModalOpen(true);
     };
@@ -137,6 +149,8 @@ const BookingAndLoans: React.FC = () => {
 
         updateEquipment(selectedItem.id, {
             name: editName,
+            label: editLabel || undefined,
+            imageUrl: editImageUrl || undefined,
             category: editCategory,
             totalQty: editTotalQty,
             availableQty: newAvailable
@@ -297,12 +311,15 @@ const BookingAndLoans: React.FC = () => {
                             <Card key={item.id} elevated style={{ display: 'flex', flexDirection: 'column', opacity: item.availableQty === 0 ? 0.6 : 1 }}>
                                 <div style={{
                                     height: '120px', background: 'var(--bg-subtle)', borderRadius: '8px', marginBottom: 'var(--space-4)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem'
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem',
+                                    backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
                                 }}>
-                                    🎧
+                                    {!item.imageUrl && '🎧'}
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', width: '100%' }}>
-                                    <h3 style={{ margin: '0 0 4px', flex: 1 }}>{item.name}</h3>
+                                    <h3 style={{ margin: '0 0 4px', flex: 1 }}>{item.name} {item.label && <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontWeight: 'normal' }}>({item.label})</span>}</h3>
                                     {(role === 'teacher' || role === 'admin') && (
                                         <button
                                             onClick={(e) => {
@@ -345,7 +362,7 @@ const BookingAndLoans: React.FC = () => {
                         ))}
                     </div>
 
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{(role === 'teacher' || role === 'admin') ? t('booking.booking.loanRequests') : t('booking.myLoans')}</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{(role === 'teacher' || role === 'admin') ? 'Booking Requests' : t('booking.myLoans')}</h2>
                     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
                         {loans
                             .filter(l => (role === 'teacher' || role === 'admin') || l.userId === user?.id)
@@ -454,6 +471,37 @@ const BookingAndLoans: React.FC = () => {
                         />
                     </div>
                     <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Label / Asset Tag</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. ERC-MIC-01"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={newItemLabel}
+                            onChange={e => setNewItemLabel(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Equipment Image</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        setNewItemImageUrl(reader.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            }}
+                        />
+                        {newItemImageUrl && (
+                            <div style={{ marginTop: '0.5rem', width: '60px', height: '60px', borderRadius: '8px', backgroundImage: `url(${newItemImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                        )}
+                    </div>
+                    <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.category')}</label>
                         <select
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -527,6 +575,43 @@ const BookingAndLoans: React.FC = () => {
                         <Button variant="ghost" onClick={() => setIsBookingModalOpen(false)}>{t('booking.cancel')}</Button>
                         <Button variant="primary" onClick={handleBookStudio} disabled={!bookingDate || !bookingTime || !bookingPurpose}>{t('booking.modal.book')}</Button>
                     </div>
+                    {(role === 'teacher' || role === 'admin') && selectedStudio?.logs && selectedStudio.logs.length > 0 && (
+                        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                            <h4 style={{ marginBottom: '0.5rem' }}>History & Logs</h4>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'var(--bg-subtle)', borderRadius: '8px', padding: '0.5rem' }}>
+                                <table style={{ width: '100%', fontSize: '0.85rem', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                                            <th style={{ padding: '4px' }}>Date</th>
+                                            <th style={{ padding: '4px' }}>User</th>
+                                            <th style={{ padding: '4px' }}>Type</th>
+                                            <th style={{ padding: '4px' }}>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedStudio.logs.map(log => (
+                                            <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td style={{ padding: '4px' }}>{new Date(log.date).toLocaleDateString()}</td>
+                                                <td style={{ padding: '4px' }}>{log.userName}</td>
+                                                <td style={{ padding: '4px' }}>
+                                                    <span style={{
+                                                        padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem',
+                                                        background: log.type === 'Damage' ? 'var(--color-danger-alpha)' :
+                                                            log.type === 'Maintenance' ? 'var(--color-warning-alpha)' : 'rgba(255,255,255,0.1)',
+                                                        color: log.type === 'Damage' ? 'var(--color-danger)' :
+                                                            log.type === 'Maintenance' ? 'var(--color-warning)' : 'white'
+                                                    }}>
+                                                        {log.type}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '4px', color: 'var(--text-secondary)' }}>{log.note}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
 
@@ -570,6 +655,37 @@ const BookingAndLoans: React.FC = () => {
                         />
                     </div>
                     <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Label / Asset Tag</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. ERC-MIC-01"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            value={editLabel}
+                            onChange={e => setEditLabel(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Equipment Image</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
+                            onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        setEditImageUrl(reader.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            }}
+                        />
+                        {editImageUrl && (
+                            <div style={{ marginTop: '0.5rem', width: '60px', height: '60px', borderRadius: '8px', backgroundImage: `url(${editImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border-color)' }} />
+                        )}
+                    </div>
+                    <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>{t('booking.label.category')}</label>
                         <select
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white' }}
@@ -595,6 +711,43 @@ const BookingAndLoans: React.FC = () => {
                             {t('booking.info.current')}: {selectedItem?.availableQty}
                         </p>
                     </div>
+                    {selectedItem?.logs && selectedItem.logs.length > 0 && (
+                        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                            <h4 style={{ marginBottom: '0.5rem' }}>History & Logs</h4>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'var(--bg-subtle)', borderRadius: '8px', padding: '0.5rem' }}>
+                                <table style={{ width: '100%', fontSize: '0.85rem', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                                            <th style={{ padding: '4px' }}>Date</th>
+                                            <th style={{ padding: '4px' }}>User</th>
+                                            <th style={{ padding: '4px' }}>Type</th>
+                                            <th style={{ padding: '4px' }}>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedItem.logs.map(log => (
+                                            <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td style={{ padding: '4px' }}>{new Date(log.date).toLocaleDateString()}</td>
+                                                <td style={{ padding: '4px' }}>{log.userName}</td>
+                                                <td style={{ padding: '4px' }}>
+                                                    <span style={{
+                                                        padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem',
+                                                        background: log.type === 'Damage' ? 'var(--color-danger-alpha)' :
+                                                            log.type === 'Maintenance' ? 'var(--color-warning-alpha)' : 'rgba(255,255,255,0.1)',
+                                                        color: log.type === 'Damage' ? 'var(--color-danger)' :
+                                                            log.type === 'Maintenance' ? 'var(--color-warning)' : 'white'
+                                                    }}>
+                                                        {log.type}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '4px', color: 'var(--text-secondary)' }}>{log.note}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                         <Button variant="ghost" onClick={() => setIsEditEquipmentModalOpen(false)}>{t('booking.cancel')}</Button>
                         <Button variant="primary" onClick={handleSaveEquipment}>{t('booking.modal.edit')}</Button>

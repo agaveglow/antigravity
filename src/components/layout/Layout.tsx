@@ -7,7 +7,7 @@ import { useSubmissions } from '../../context/SubmissionContext'; // Import Adde
 import {
     Menu, X, User as UserIcon, LogOut, Calendar, BookOpen, ShoppingBag, Package, Clock, LayoutDashboard,
     Heart, Users, Home, FolderOpen, BarChart2, Award, Box, ClipboardList, CheckCircle,
-    FileCheck, Shield, Disc, Star, TrendingUp
+    Shield, Disc, Star, TrendingUp, Layers
 } from 'lucide-react';
 import './Layout.css';
 import NotificationBell from './NotificationBell';
@@ -50,18 +50,17 @@ const Layout: React.FC = () => {
         { to: '/teacher/students', label: 'Students', icon: <Users size={20} /> }, // No translation key yet
         { to: '/teacher/projects', label: t('sidebar.projects'), icon: <FolderOpen size={20} /> },
         { to: '/teacher/quizzes', label: 'Courses', icon: <ClipboardList size={20} /> }, // No translation key yet
-        { to: '/teacher/assessment', label: 'Assessment', icon: <CheckCircle size={20} /> }, // No translation key yet
-        { to: '/teacher/achievements', label: 'Achievements', icon: <Award size={20} /> },
-        { to: '/teacher/badges', label: 'Badges', icon: <Star size={20} /> },
-        { to: '/teacher/qa', label: 'QA & IV', icon: <FileCheck size={20} /> }, // No translation key yet
-        { to: '/teacher/resources', label: t('sidebar.resources'), icon: <Box size={20} /> },
+        { to: '/teacher/assessment', label: 'Assessment & QA', icon: <CheckCircle size={20} /> }, // No translation key yet
+        { to: '/teacher/achievements', label: 'Achievements & Badges', icon: <Award size={20} /> },
+        { to: '/teacher/resources', label: t('sidebar.resources'), icon: <Layers size={20} /> },
     ];
 
     const sharedLinks: NavLinkItem[] = [
+        { to: '/erc', label: 'ERC Records', icon: <Disc size={20} /> },
         { to: '/timetable', label: 'Timetable', icon: <Clock size={20} /> }, // No translation key yet
         { to: '/calendar', label: t('sidebar.calendar'), icon: <Calendar size={20} /> },
+        ...(role === 'admin' ? [{ to: '/admin', label: 'Staff Admin', icon: <Shield size={20} />, end: true }] : []),
         { to: '/profile', label: t('sidebar.profile'), icon: <UserIcon size={20} /> },
-        { to: '/erc', label: 'ERC Records', icon: <Disc size={20} /> },
         { to: '/support', label: t('sidebar.support'), icon: <Heart size={20} /> },
     ];
 
@@ -82,13 +81,6 @@ const Layout: React.FC = () => {
             }
         }
 
-        // Add admin link if user is admin
-        if (role === 'admin') {
-            roleLinks = [
-                ...teacherLinks,
-                { to: '/admin', label: 'Staff Admin', icon: <Shield size={20} />, end: true }
-            ];
-        }
 
         return [...roleLinks, ...sharedLinks].filter(link => {
             if (user?.department === 'performing_arts' && ['/erc'].includes(link.to)) return false;
@@ -140,7 +132,18 @@ const Layout: React.FC = () => {
                         }}
                     />
                 </div>
-                <div className="role-badge" style={{ alignSelf: 'center', marginBottom: '20px' }}>{role?.toUpperCase()}</div>
+                <div className="role-badge" style={{ alignSelf: 'center', marginBottom: '10px' }}>{role?.toUpperCase()}</div>
+
+                <div className="sidebar-utility" style={{ marginBottom: '20px', padding: '0 var(--space-2)' }}>
+                    <button
+                        className="logout-btn"
+                        onClick={handleLogout}
+                        title={t('sidebar.logout')}
+                    >
+                        <LogOut size={20} />
+                        <span>{t('sidebar.logout')}</span>
+                    </button>
+                </div>
 
 
                 <nav className="sidebar-nav">
@@ -185,17 +188,6 @@ const Layout: React.FC = () => {
                         );
                     })}
                 </nav>
-
-                <div className="sidebar-footer">
-                    <button
-                        className="logout-btn"
-                        onClick={handleLogout}
-                        title={t('sidebar.logout')}
-                    >
-                        <LogOut size={20} />
-                        <span>{t('sidebar.logout')}</span>
-                    </button>
-                </div>
             </aside>
 
             {/* Main Content */}
@@ -232,7 +224,7 @@ const Layout: React.FC = () => {
                     <Outlet />
                 </div>
             </main>
-        </div>
+        </div >
     );
 };
 

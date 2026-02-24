@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { type ProjectBrief, type UALCohort, type CalendarEvent } from '../types/ual';
 import { supabase } from '../lib/supabase';
+import { useUser } from './UserContext';
 
 interface CurriculumContextType {
     projects: ProjectBrief[];
@@ -14,7 +15,7 @@ interface CurriculumContextType {
     addEvent: (event: CalendarEvent) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
-    getProjectsByCohort: (cohort: UALCohort) => ProjectBrief[];
+    getProjectsByCohort: (cohort: UALCohort, subject?: 'music' | 'performing_arts') => ProjectBrief[];
     getProjectById: (id: string) => ProjectBrief | undefined;
 }
 
@@ -24,10 +25,12 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [projects, setProjects] = useState<ProjectBrief[]>([]);
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { user } = useUser();
 
-    // Initial load
+    // Initial load - only when user is logged in
     useEffect(() => {
         const loadData = async () => {
+            if (!user) return; // Fail fast if no user (though useEffect handles this too)
             console.log('CurriculumContext: loadData triggered');
             setIsLoading(true);
 
@@ -139,7 +142,7 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return () => {
             supabase.removeChannel(projectSub);
         };
-    }, []);
+    }, [user]); // Re-run when user changes
 
     // Derive All Events (Custom + Project Deadlines + Task Deadlines)
     const allEvents = useMemo(() => {
@@ -471,8 +474,8 @@ export const CurriculumProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     };
 
-    const getProjectsByCohort = (cohort: UALCohort) => {
-        return projects.filter(p => p.cohort === cohort);
+    const getProjectsByCohort = (cohort: UALCohort, subject?: 'music' | 'performing_arts') => {
+        return projects.filter(p => p.cohort === cohort && (!subject || !p.subject || p.subject === subject));
     };
 
     const getProjectById = (id: string) => projects.find(p => p.id === id);

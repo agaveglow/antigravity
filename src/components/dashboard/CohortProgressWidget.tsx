@@ -48,12 +48,38 @@ const CohortProgressWidget: React.FC = () => {
                 { name: 'Level 3B', color: 'var(--color-brand-orange)' }
             ];
 
+            // --- Pre-process data for speed ---
+
+            // 1. Map progress by student_id
+            const progressByStudent = (allProgress || []).reduce((acc: Record<string, any[]>, p) => {
+                if (!acc[p.student_id]) acc[p.student_id] = [];
+                acc[p.student_id].push(p);
+                return acc;
+            }, {});
+
+            // 2. Map submissions by studentId
+            const submissionsByStudent = submissions.reduce((acc: Record<string, any[]>, s) => {
+                if (!acc[s.studentId]) acc[s.studentId] = [];
+                acc[s.studentId].push(s);
+                return acc;
+            }, {});
+
+            // 3. Pre-calculate course item counts and IDs
+            const courseItemsMap = courses.map(course => {
+                const items = [...quizzes, ...lessons, ...walkthroughs].filter(i => i.courseId === course.id);
+                return { courseId: course.id, itemIds: items.map(i => i.id) };
+            }).filter(c => c.itemIds.length > 0);
+
+            // 4. Pre-calculate project task counts
+            const projectTaskCounts = projects.map(p => ({ id: p.id, total: p.tasks.length || 4 }));
+
+            // --- Compute Stats ---
+
             const cohortStats: CohortStats[] = [];
             let totalProgressSum = 0;
-            let totalActiveStudents = 0;
+            let totalActiveStudentsCount = 0;
 
             cohorts.forEach(c => {
-                // Filter students in this cohort
                 const cohortStudents = students.filter(s => s.cohort === c.name && s.status === 'Active');
 
                 if (cohortStudents.length === 0) {
@@ -61,35 +87,29 @@ const CohortProgressWidget: React.FC = () => {
                     return;
                 }
 
-                // Calculate progress for EACH student (same logic as individual dashboard)
                 let cohortTotalPercent = 0;
 
                 cohortStudents.forEach(student => {
-                    const studentProgress = allProgress?.filter(p => p.student_id === student.id) || [];
-                    const studentSubmissions = submissions.filter(s => s.studentId === student.id);
+                    const studentProgress = progressByStudent[student.id] || [];
+                    const studentSubmissions = submissionsByStudent[student.id] || [];
 
                     // 1. Course Progress
-                    let courseSum = 0;
-                    courses.forEach(course => {
-                        const cItems = [...quizzes, ...lessons, ...walkthroughs].filter(i => i.courseId === course.id);
-                        if (cItems.length === 0) return;
-
-                        const completed = studentProgress.filter(p => cItems.some(i => i.id === p.content_id) && p.completed).length;
-                        courseSum += (completed / cItems.length);
+                    let coursePercentSum = 0;
+                    courseItemsMap.forEach(cm => {
+                        const completedCount = studentProgress.filter(p => cm.itemIds.includes(p.content_id) && p.completed).length;
+                        coursePercentSum += (completedCount / cm.itemIds.length);
                     });
-                    const avgCourseProgress = courses.length > 0 ? (courseSum / courses.length) * 100 : 0;
+                    const avgCourseProgress = courseItemsMap.length > 0 ? (coursePercentSum / courseItemsMap.length) * 100 : 0;
 
                     // 2. Project Progress
-                    let projectSum = 0;
-                    projects.forEach(proj => {
-                        const verified = studentSubmissions.filter(s => s.projectId === proj.id && (s.status === 'Verified' || s.status === 'Graded')).length;
-                        // Assuming standard 4 tasks per project if not dynamic, but let's use actual task count
-                        const totalTasks = proj.tasks.length || 4;
-                        projectSum += (verified / totalTasks);
+                    let projectPercentSum = 0;
+                    projectTaskCounts.forEach(pm => {
+                        const verifiedCount = studentSubmissions.filter(s => s.projectId === pm.id && (s.status === 'Verified' || s.status === 'Graded' || s.ivStatus === 'Verified')).length;
+                        projectPercentSum += (verifiedCount / pm.total);
                     });
-                    const avgProjectProgress = projects.length > 0 ? (projectSum / projects.length) * 100 : 0;
+                    const avgProjectProgress = projectTaskCounts.length > 0 ? (projectPercentSum / projectTaskCounts.length) * 100 : 0;
 
-                    // Combined Average for Student
+                    // Combined Average (50/50 weight for now)
                     const studentOverall = (avgCourseProgress + avgProjectProgress) / 2;
                     cohortTotalPercent += studentOverall;
                 });
@@ -104,11 +124,11 @@ const CohortProgressWidget: React.FC = () => {
                 });
 
                 totalProgressSum += cohortTotalPercent;
-                totalActiveStudents += cohortStudents.length;
+                totalActiveStudentsCount += cohortStudents.length;
             });
 
             setStats(cohortStats);
-            setOverallAvg(totalActiveStudents > 0 ? Math.round(totalProgressSum / totalActiveStudents) : 0);
+            setOverallAvg(totalActiveStudentsCount > 0 ? Math.round(totalProgressSum / totalActiveStudentsCount) : 0);
 
         } catch (err) {
             console.error('Error calculating cohort progress:', err);
@@ -156,7 +176,7 @@ const CohortProgressWidget: React.FC = () => {
                 {stats.map(s => (
                     <div key={s.cohort}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: 600 }}>{s.cohort}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.cohort}</span>
                             <span style={{ color: 'var(--text-secondary)' }}>{loading ? '-' : `${s.averageProgress}%`}</span>
                         </div>
                         <ProgressBar

@@ -89,8 +89,14 @@ export const AchievementsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             setIsLoading(false);
         };
 
-        loadAchievements();
-    }, []);
+        if (user) {
+            loadAchievements();
+        } else {
+            setAchievements([]);
+            setStudentAchievements({});
+            setIsLoading(false);
+        }
+    }, [user]);
 
     const addAchievement = async (achievementData: Omit<Achievement, 'id'>) => {
         const { data } = await supabase.from('achievements').insert([achievementData]).select();

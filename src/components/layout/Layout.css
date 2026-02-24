@@ -11,8 +11,8 @@
     /* Compact width (icon only) */
     background: rgba(28, 28, 30, 0.7);
     /* Glassmorphic dark */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: var(--text-inverse);
     display: flex;
     flex-direction: column;
@@ -119,10 +119,30 @@
     box-shadow: 0 4px 12px rgba(255, 159, 10, 0.3);
 }
 
-.sidebar-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: var(--space-4) var(--space-2);
-    margin-top: auto;
+.sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    scroll-behavior: smooth;
+    margin-bottom: var(--space-4);
+}
+
+/* Custom scrollbar for sidebar nav */
+.sidebar-nav::-webkit-scrollbar {
+    width: 0px;
+    display: none;
+}
+
+/* For Firefox */
+.sidebar-nav {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* IE and Edge */
+}
+
+.sidebar-utility {
     display: flex;
     justify-content: center;
 }
@@ -243,7 +263,8 @@
 .mobile-header {
     display: none;
     height: 60px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(224, 255, 255, 0.9);
+    /* Light cyan background */
     backdrop-filter: blur(10px);
     padding: 0 var(--space-4);
     align-items: center;
@@ -320,8 +341,8 @@
         height: calc(100vh - 60px);
     }
 
-    /* Hide redundant avatar in top-bar on mobile since it's in mobile-header */
-    .top-bar .avatar-placeholder {
+    /* Hide top-bar entirely on mobile since its features are in mobile-header */
+    .top-bar {
         display: none;
     }
 }

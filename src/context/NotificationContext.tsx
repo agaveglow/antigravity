@@ -158,9 +158,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     entity_type: entityType
                 });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error creating notification:', error.message, error.details, error.hint);
+                throw error;
+            }
         } catch (error) {
-            console.error('Error creating notification:', error);
+            console.error('Error in createNotification:', error);
         }
     };
 

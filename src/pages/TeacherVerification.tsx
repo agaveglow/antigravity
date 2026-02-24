@@ -51,7 +51,8 @@ const TeacherVerification: React.FC = () => {
             submittedAt: now.toISOString(),
             verifiedBy: user.name,
             verifiedAt: now.toISOString(),
-            evidence: [] // No evidence needed for manual verification
+            evidence: [], // No evidence needed for manual verification
+            ivStatus: 'Verified' // Manually verified by teacher counts as IV-ed
         });
 
         // Award 'First Steps' (Complete first project task)

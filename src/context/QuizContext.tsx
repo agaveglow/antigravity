@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Quiz, Course, Lesson, Walkthrough, Stage, Module } from '../types/ual';
+import type { Quiz, Course, Lesson, Walkthrough, Stage, Module, CourseFolder } from '../types/ual';
 import { useUser } from './UserContext';
 import { supabase } from '../lib/supabase';
 import { useNotifications } from './NotificationContext';
@@ -41,6 +41,13 @@ interface QuizContextType {
     completeWalkthrough: (walkthroughId: string) => Promise<void>;
     completedWalkthroughs: string[];
     reorderItem: (id: string, type: 'quiz' | 'lesson' | 'walkthrough', direction: 'up' | 'down') => Promise<void>;
+    resetCourseProgress: (courseId: string) => Promise<void>;
+    // Folders
+    folders: CourseFolder[];
+    addFolder: (folder: CourseFolder) => Promise<{ success: boolean; error?: string }>;
+    updateFolder: (id: string, updates: Partial<CourseFolder>) => Promise<{ success: boolean; error?: string }>;
+    deleteFolder: (id: string) => Promise<void>;
+    reorderFolder: (id: string, direction: 'up' | 'down') => Promise<void>;
 }
 
 const QuizContext = createContext<QuizContextType | undefined>(undefined);
@@ -59,154 +66,136 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [completedQuizzes, setCompletedQuizzes] = useState<string[]>([]);
     const [completedLessons, setCompletedLessons] = useState<string[]>([]);
     const [completedWalkthroughs, setCompletedWalkthroughs] = useState<string[]>([]);
+    const [folders, setFolders] = useState<CourseFolder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Initial load
     useEffect(() => {
         const loadContent = async () => {
-            console.log('QuizContext: loadContent triggered');
+            const start = performance.now();
+            console.log('QuizContext: loadContent started');
             setIsLoading(true);
 
-            // Load Courses
-            const { data: coursesData, error: coursesError } = await supabase
-                .from('courses')
-                .select('*')
-                .order('order_index');
+            try {
+                // Fetch everything in parallel
+                const [
+                    { data: coursesData, error: coursesError },
+                    { data: stagesData, error: stagesError },
+                    { data: modulesData, error: modulesError },
+                    { data: lessonsData, error: lessonsError },
+                    { data: quizzesData, error: quizzesError },
+                    { data: walkthroughsData, error: walkthroughsError },
+                    { data: foldersData, error: foldersError }
+                ] = await Promise.all([
+                    supabase.from('courses').select('*').order('order_index'),
+                    supabase.from('stages').select('*').order('order_index'),
+                    supabase.from('modules').select('*').order('order_index'),
+                    supabase.from('lessons').select('*').order('order_index'),
+                    supabase.from('quizzes').select('*').order('order_index'),
+                    supabase.from('walkthroughs').select('*').order('order_index'),
+                    supabase.from('course_folders').select('*').order('order_index')
+                ]);
 
-            if (coursesError) {
-                console.error('QuizContext: Error loading courses:', coursesError.message, coursesError.details);
-                // Try fallback if order_index fails
-                if (coursesError.message?.includes('order_index')) {
-                    const { data: fallbackCourses } = await supabase.from('courses').select('*');
-                    if (fallbackCourses) {
-                        setCourses(fallbackCourses.map((c: any) => ({
-                            ...c,
-                            imageUrl: c.image_url,
-                            order: c.order || 0
-                        })));
-                    }
+                if (coursesError) console.error('QuizContext: Courses load failed:', coursesError.message);
+                if (stagesError) console.error('QuizContext: Stages load failed:', stagesError.message);
+                if (modulesError) console.error('QuizContext: Modules load failed:', modulesError.message);
+                if (lessonsError) console.error('QuizContext: Lessons load failed:', lessonsError.message);
+                if (quizzesError) console.error('QuizContext: Quizzes load failed:', quizzesError.message);
+                if (walkthroughsError) console.error('QuizContext: Walkthroughs load failed:', walkthroughsError.message);
+                if (foldersError) console.error('QuizContext: Folders load failed:', foldersError.message);
+
+                // Map data with fallbacks
+                if (coursesData) {
+                    setCourses(coursesData.map((c: any) => ({
+                        ...c,
+                        imageUrl: c.image_url,
+                        order: c.order_index,
+                        folderId: c.folder_id
+                    })));
                 }
-            } else if (coursesData) {
-                setCourses(coursesData.map((c: any) => ({
-                    ...c,
-                    imageUrl: c.image_url, // Ensure image_url is mapped
-                    order: c.order_index
-                })));
-            }
 
-            // Load Stages
-            const { data: stagesData } = await supabase.from('stages').select('*').order('order_index');
-            if (stagesData) {
-                setStages(stagesData.map((s: any) => ({
-                    ...s,
-                    courseId: s.course_id, // Map snake_case to camelCase
-                    xpReward: s.xp_reward,
-                    dowdBucksReward: s.dowd_bucks_reward,
-                    order: s.order_index
-                })));
-            }
-
-            // Load Modules
-            const { data: modulesData } = await supabase.from('modules').select('*').order('order_index');
-            if (modulesData) {
-                setModules(modulesData.map((m: any) => ({
-                    ...m,
-                    stageId: m.stage_id, // Map snake_case to camelCase
-                    xpReward: m.xp_reward,
-                    dowdBucksReward: m.dowd_bucks_reward,
-                    order: m.order_index
-                })));
-            }
-
-            // Load Lessons
-            const { data: lessonsData, error: lessonsError } = await supabase
-                .from('lessons')
-                .select('*')
-                .order('order_index');
-
-            if (lessonsError) {
-                console.error('QuizContext: Error loading lessons:', lessonsError.message, lessonsError.details);
-                if (lessonsError.message?.includes('order_index')) {
-                    const { data: fallbackLessons } = await supabase.from('lessons').select('*');
-                    if (fallbackLessons) {
-                        setLessons(fallbackLessons.map((l: any) => ({
-                            ...l,
-                            courseId: l.course_id,
-                            moduleId: l.module_id,
-                            xpReward: l.xp_reward,
-                            order: l.order_index || l.order || 0
-                        })));
-                    }
+                if (stagesData) {
+                    setStages(stagesData.map((s: any) => ({
+                        ...s,
+                        courseId: s.course_id,
+                        xpReward: s.xp_reward,
+                        dowdBucksReward: s.dowd_bucks_reward,
+                        order: s.order_index
+                    })));
                 }
-            } else if (lessonsData) {
-                setLessons(lessonsData.map((l: any) => ({
-                    ...l,
-                    courseId: l.course_id,
-                    moduleId: l.module_id,
-                    xpReward: l.xp_reward,
-                    order: l.order_index
-                })));
-            }
 
-            // Load Quizzes
-            const { data: quizzesData, error: quizzesError } = await supabase
-                .from('quizzes')
-                .select('*')
-                .order('order_index');
-
-            if (quizzesError) {
-                console.error('QuizContext: Error loading quizzes:', quizzesError.message, quizzesError.details);
-                if (quizzesError.message?.includes('order_index')) {
-                    const { data: fallbackQuizzes } = await supabase.from('quizzes').select('*');
-                    if (fallbackQuizzes) {
-                        setQuizzes(fallbackQuizzes.map((q: any) => ({
-                            ...q,
-                            courseId: q.course_id,
-                            moduleId: q.module_id,
-                            projectId: q.project_id,
-                            xpReward: q.xp_reward,
-                            dowdBucksReward: q.dowd_bucks_reward, // Assuming snake_case
-                            correctOptionId: q.correct_option_id, // If stored this way at top level? No, questions are typically JSONB or separate table
-                            order: q.order || 0
-                        })));
-                    }
+                if (modulesData) {
+                    setModules(modulesData.map((m: any) => ({
+                        ...m,
+                        stageId: m.stage_id,
+                        xpReward: m.xp_reward,
+                        dowdBucksReward: m.dowd_bucks_reward,
+                        order: m.order_index
+                    })));
                 }
-            } else if (quizzesData) {
-                setQuizzes(quizzesData.map((q: any) => ({
-                    ...q,
-                    courseId: q.course_id,
-                    moduleId: q.module_id,
-                    projectId: q.project_id,
-                    xpReward: q.xp_reward,
-                    dowdBucksReward: q.dowd_bucks_reward || q.dowdBucksReward,
-                    order: q.order_index
-                })));
+
+                if (lessonsData) {
+                    setLessons(lessonsData.map((l: any) => ({
+                        ...l,
+                        courseId: l.course_id,
+                        moduleId: l.module_id,
+                        xpReward: l.xp_reward,
+                        order: l.order_index
+                    })));
+                }
+
+                if (quizzesData) {
+                    setQuizzes(quizzesData.map((q: any) => ({
+                        ...q,
+                        courseId: q.course_id,
+                        moduleId: q.module_id,
+                        projectId: q.project_id,
+                        xpReward: q.xp_reward,
+                        dowdBucksReward: q.dowd_bucks_reward || q.dowdBucksReward,
+                        order: q.order_index
+                    })));
+                }
+
+                if (walkthroughsData) {
+                    setWalkthroughs(walkthroughsData.map((w: any) => ({
+                        ...w,
+                        courseId: w.course_id,
+                        moduleId: w.module_id,
+                        xpReward: w.xp_reward,
+                        dowdBucksReward: w.dowd_bucks_reward,
+                        order: w.order_index
+                    })));
+                }
+
+                if (foldersData) {
+                    setFolders(foldersData.map((f: any) => ({
+                        ...f,
+                        orderIndex: f.order_index,
+                        createdAt: f.created_at
+                    })));
+                }
+
+                const end = performance.now();
+                console.log(`QuizContext: Curriculum loaded in ${(end - start).toFixed(2)}ms`);
+            } catch (error) {
+                console.error('QuizContext: Fatal error in loadContent:', error);
+            } finally {
+                setIsLoading(false);
             }
-
-            // Load Walkthroughs
-            const { data: walkthroughsData, error: walkthroughsError } = await supabase
-                .from('walkthroughs')
-                .select('*')
-                .order('order_index');
-
-            if (walkthroughsError) {
-                console.error('QuizContext: Error loading walkthroughs:', walkthroughsError.message);
-            } else if (walkthroughsData) {
-                setWalkthroughs(walkthroughsData.map((w: any) => ({
-                    ...w,
-                    courseId: w.course_id,
-                    moduleId: w.module_id,
-                    xpReward: w.xp_reward,
-                    dowdBucksReward: w.dowd_bucks_reward,
-                    order: w.order_index
-                })));
-            }
-
-            setIsLoading(false);
         };
 
-        loadContent();
-    }, []);
+        if (user) {
+            loadContent();
+        } else {
+            setCourses([]);
+            setStages([]);
+            setModules([]);
+            setLessons([]);
+            setQuizzes([]);
+            setWalkthroughs([]);
+            setIsLoading(false);
+        }
+    }, [user]);
 
     // Load User Progress
     useEffect(() => {
@@ -454,6 +443,31 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const resetCourseProgress = async (courseId: string) => {
+        if (!user) return;
+
+        const cQuizzes = quizzes.filter(q => q.courseId === courseId).map(q => q.id);
+        const cLessons = lessons.filter(l => l.courseId === courseId).map(l => l.id);
+        const cWalkthroughs = walkthroughs.filter(w => w.courseId === courseId).map(w => w.id);
+        const allIds = [...cQuizzes, ...cLessons, ...cWalkthroughs];
+
+        if (allIds.length === 0) return;
+
+        const { error } = await supabase
+            .from('content_completion')
+            .delete()
+            .eq('user_id', user.id)
+            .in('content_id', allIds);
+
+        if (!error) {
+            setCompletedQuizzes(prev => prev.filter(id => !cQuizzes.includes(id)));
+            setCompletedLessons(prev => prev.filter(id => !cLessons.includes(id)));
+            setCompletedWalkthroughs(prev => prev.filter(id => !cWalkthroughs.includes(id)));
+        } else {
+            console.error('QuizContext: Error resetting course progress:', error);
+        }
+    };
+
     // --- Mutators (Teachers) ---
     const addCourse = async (course: Course): Promise<{ success: boolean; error?: string }> => {
         const { id, order, ...data } = course;
@@ -461,13 +475,14 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Include ID in payload to ensure client-side ID matches server-side ID
         // Map camelCase to snake_case
-        const { createdAt, imageUrl, ...rest } = data;
+        const { createdAt, imageUrl, folderId, ...rest } = data;
         let currentPayload: any = {
             ...rest,
             id,
             order_index: order,
             created_at: createdAt,
-            image_url: imageUrl
+            image_url: imageUrl,
+            folder_id: folderId
         };
         let success = false;
         let attempts = 0;
@@ -504,11 +519,12 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCourses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
 
-        const { createdAt, imageUrl, order, ...rest } = updates;
+        const { createdAt, imageUrl, order, folderId, ...rest } = updates;
         let currentPayload: any = { ...rest };
         if (order !== undefined) currentPayload.order_index = order;
         if (createdAt !== undefined) currentPayload.created_at = createdAt;
         if (imageUrl !== undefined) currentPayload.image_url = imageUrl;
+        if (folderId !== undefined) currentPayload.folder_id = folderId;
         let success = false;
         let attempts = 0;
         let lastError: any = null;
@@ -1129,6 +1145,91 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
     };
 
+    const addFolder = async (folder: CourseFolder) => {
+        const { data, error } = await supabase.from('course_folders').insert({
+            id: folder.id,
+            title: folder.title,
+            description: folder.description,
+            color: folder.color,
+            order_index: folder.orderIndex
+        }).select().single();
+
+        if (error) {
+            console.error('Error adding folder:', error);
+            return { success: false, error: error.message };
+        }
+
+        if (data) {
+            setFolders(prev => [...prev, {
+                ...data,
+                orderIndex: data.order_index,
+                createdAt: data.created_at
+            }]);
+        }
+        return { success: true };
+    };
+
+    const updateFolder = async (id: string, updates: Partial<CourseFolder>) => {
+        const { id: _, createdAt, orderIndex, ...rest } = updates;
+        const dbUpdates: any = { ...rest };
+        if (orderIndex !== undefined) dbUpdates.order_index = orderIndex;
+
+        const { data, error } = await supabase.from('course_folders').update(dbUpdates).eq('id', id).select().single();
+
+        if (error) {
+            console.error('Error updating folder:', error);
+            return { success: false, error: error.message };
+        }
+
+        if (data) {
+            setFolders(prev => prev.map(f => f.id === id ? {
+                ...data,
+                orderIndex: data.order_index,
+                createdAt: data.created_at
+            } : f));
+        }
+        return { success: true };
+    };
+
+    const deleteFolder = async (id: string) => {
+        const { error } = await supabase.from('course_folders').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting folder:', error);
+            alert(`Failed to delete folder: ${error.message}`);
+        } else {
+            setFolders(prev => prev.filter(f => f.id !== id));
+            // Also unset folderId for courses in this folder
+            setCourses(prev => prev.map(c => c.folderId === id ? { ...c, folderId: undefined } : c));
+        }
+    };
+
+    const reorderFolder = async (id: string, direction: 'up' | 'down') => {
+        // Sort first to ensure we work with correct order
+        const sortedFolders = [...folders].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        const idx = sortedFolders.findIndex(f => f.id === id);
+        if (idx === -1) return;
+
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= sortedFolders.length) return;
+
+        // Move
+        const [moved] = sortedFolders.splice(idx, 1);
+        sortedFolders.splice(newIdx, 0, moved);
+
+        // Re-index all
+        const newFolders = sortedFolders.map((f, index) => ({ ...f, orderIndex: index }));
+
+        // Optimistic update
+        setFolders(newFolders);
+
+        // Persist all
+        await Promise.all(
+            newFolders.map(f =>
+                supabase.from('course_folders').update({ order_index: f.orderIndex }).eq('id', f.id)
+            )
+        );
+    };
+
     return (
         <QuizContext.Provider value={{
             quizzes, addQuiz, updateQuiz, deleteQuiz, completeQuiz, completedQuizzes, reorderQuiz,
@@ -1137,7 +1238,8 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
             modules, addModule, updateModule, deleteModule, reorderModule,
             lessons, addLesson, updateLesson, deleteLesson, completeLesson, completedLessons,
             walkthroughs, addWalkthrough, updateWalkthrough, deleteWalkthrough, completeWalkthrough, completedWalkthroughs,
-            reorderItem, isLoading
+            reorderItem, isLoading, resetCourseProgress,
+            folders, addFolder, updateFolder, deleteFolder, reorderFolder
         }}>
             {children}
         </QuizContext.Provider>

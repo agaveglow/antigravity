@@ -6,7 +6,7 @@ import { useNotifications } from '../context/NotificationContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import ProgressBar from '../components/common/ProgressBar';
-import { Lock, Star, CheckCircle2, Play, Flag, X, ArrowLeft, BookOpen, Image } from 'lucide-react';
+import { Lock, Star, CheckCircle2, Play, Flag, X, ArrowLeft, BookOpen, Image, Folder } from 'lucide-react';
 import type { Quiz, Lesson, Walkthrough } from '../types/ual';
 import PageTransition from '../components/common/PageTransition';
 import { audioService } from '../utils/audio';
@@ -20,8 +20,10 @@ const StudentLearning: React.FC = () => {
     const {
         quizzes, completeQuiz, completedQuizzes,
         courses,
+        folders,
         lessons, completeLesson, completedLessons,
-        walkthroughs, completeWalkthrough, completedWalkthroughs
+        walkthroughs, completeWalkthrough, completedWalkthroughs,
+        resetCourseProgress
     } = useQuizzes();
     const { t } = useLanguage();
     const { awardAchievement, achievements } = useAchievements();
@@ -339,6 +341,12 @@ const StudentLearning: React.FC = () => {
 
         const roadmapItems = [...courseQuizzes, ...courseLessons, ...courseWalkthroughs].sort((a, b) => (a.order || 0) - (b.order || 0));
 
+        const isCourseFullyCompleted = roadmapItems.length > 0 && roadmapItems.every(item => {
+            return item.itemType === 'quiz' ? completedQuizzes.includes(item.id) :
+                (item.itemType === 'lesson' ? completedLessons.includes(item.id) :
+                    completedWalkthroughs.includes(item.id));
+        });
+
         return (
             <PageTransition>
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -495,15 +503,39 @@ const StudentLearning: React.FC = () => {
                             })}
                         </div>
 
-                        {/* Finish Flag */}
-                        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-                            <div style={{
-                                width: '60px', height: '60px', borderRadius: '50%', background: 'var(--bg-surface-elevated)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto',
-                                border: '4px dashed var(--text-tertiary)', opacity: 0.5
-                            }}>
-                                <Flag size={24} />
-                            </div>
+                        {/* Finish Flag & Retake Action */}
+                        <div style={{ textAlign: 'center', marginTop: '3rem', marginBottom: '2rem' }}>
+                            {isCourseFullyCompleted ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{
+                                        width: '80px', height: '80px', borderRadius: '50%', background: 'var(--color-success)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 0 20px rgba(46, 204, 113, 0.4)'
+                                    }}>
+                                        <Flag size={36} color="white" />
+                                    </div>
+                                    <h3 style={{ margin: '0' }}>Course Completed!</h3>
+                                    <Button
+                                        variant="outline"
+                                        onClick={async () => {
+                                            if (course && window.confirm('Are you sure you want to retake this course? This will reset your progress so you can complete it again.')) {
+                                                await resetCourseProgress(course.id);
+                                            }
+                                        }}
+                                        style={{ marginTop: '0.5rem' }}
+                                    >
+                                        Retake Course
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    width: '60px', height: '60px', borderRadius: '50%', background: 'var(--bg-surface-elevated)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto',
+                                    border: '4px dashed var(--border-color)', opacity: 0.5
+                                }}>
+                                    <Flag size={24} color="var(--text-tertiary)" />
+                                </div>
+                            )}
                         </div>
 
                     </div>
@@ -518,61 +550,156 @@ const StudentLearning: React.FC = () => {
         <PageTransition>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 <h1 style={{ marginBottom: '2rem' }}>{t('learning.title')}</h1>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-                    {courses.map(course => {
-                        // Calc progress
-                        const cQuizzes = quizzes.filter(q => q.courseId === course.id);
-                        const cLessons = lessons.filter(l => l.courseId === course.id);
-                        const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
-                        const totalItems = cQuizzes.length + cLessons.length + cWalkthroughs.length;
+                <div style={{ display: 'grid', gap: '3rem' }}>
+                    {/* Folder-based Groups */}
+                    {folders.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map(folder => {
+                        const folderCourses = (courses || [])
+                            .filter(c => c.folderId === folder.id)
+                            .filter(c => (!c.level || c.level === user?.cohort) && (!c.subject || c.subject === user?.department) && c.published !== false);
 
-                        const completedQ = cQuizzes.filter(q => completedQuizzes.includes(q.id)).length;
-                        const completedL = cLessons.filter(l => completedLessons.includes(l.id)).length;
-                        const completedW = cWalkthroughs.filter(w => completedWalkthroughs.includes(w.id)).length;
-                        const totalCompleted = completedQ + completedL + completedW;
-
-                        const percent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+                        if (folderCourses.length === 0) return null;
 
                         return (
-                            <Card
-                                key={course.id}
-                                hover elevated
-                                onClick={() => setActiveCourseId(course.id)}
-                                style={{ cursor: 'pointer', borderTop: `4px solid ${course.color}` }}
-                            >
-                                <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{course.title}</h2>
-                                <div style={{
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: '1.5rem',
-                                    fontSize: '0.95rem',
-                                    lineHeight: '1.6'
-                                }}>
-                                    <RichTextViewer content={course.description} />
+                            <div key={folder.id}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: `2px solid ${folder.color || 'var(--border-color)'}`, paddingBottom: '0.5rem' }}>
+                                    <Folder size={24} color={folder.color || 'var(--text-primary)'} />
+                                    <h2 style={{ margin: 0, fontSize: '1.6rem' }}>{folder.title}</h2>
+                                    {folder.description && <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem', marginLeft: '1rem' }}>{folder.description}</span>}
                                 </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+                                    {folderCourses.map(course => {
+                                        // Calc progress
+                                        const cQuizzes = quizzes.filter(q => q.courseId === course.id);
+                                        const cLessons = lessons.filter(l => l.courseId === course.id);
+                                        const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
+                                        const totalItems = cQuizzes.length + cLessons.length + cWalkthroughs.length;
 
-                                {/* Progress Section */}
-                                <div style={{ marginBottom: '0.5rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Progress</span>
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            {percent === 100 && (
-                                                <CheckCircle2 size={16} color="var(--color-success)" />
-                                            )}
-                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: percent === 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>
-                                                {totalCompleted}/{totalItems} ({percent}%)
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <ProgressBar
-                                        current={totalCompleted}
-                                        total={totalItems}
-                                        showPercentage={false}
-                                        color={course.color || 'var(--color-brand-cyan)'}
-                                    />
+                                        const completedQ = cQuizzes.filter(q => completedQuizzes.includes(q.id)).length;
+                                        const completedL = cLessons.filter(l => completedLessons.includes(l.id)).length;
+                                        const completedW = cWalkthroughs.filter(w => completedWalkthroughs.includes(w.id)).length;
+                                        const totalCompleted = completedQ + completedL + completedW;
+
+                                        const percent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+
+                                        return (
+                                            <Card
+                                                key={course.id}
+                                                hover elevated
+                                                onClick={() => setActiveCourseId(course.id)}
+                                                style={{ cursor: 'pointer', borderTop: `4px solid ${course.color}` }}
+                                            >
+                                                <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{course.title}</h3>
+                                                <div style={{
+                                                    color: 'var(--text-secondary)',
+                                                    marginBottom: '1.5rem',
+                                                    fontSize: '0.95rem',
+                                                    lineHeight: '1.6'
+                                                }}>
+                                                    <RichTextViewer content={course.description} />
+                                                </div>
+
+                                                {/* Progress Section */}
+                                                <div style={{ marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Progress</span>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                            {percent === 100 && (
+                                                                <CheckCircle2 size={16} color="var(--color-success)" />
+                                                            )}
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: percent === 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>
+                                                                {totalCompleted}/{totalItems} ({percent}%)
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <ProgressBar
+                                                        current={totalCompleted}
+                                                        total={totalItems}
+                                                        showPercentage={false}
+                                                        color={course.color || 'var(--color-brand-cyan)'}
+                                                    />
+                                                </div>
+                                            </Card>
+                                        );
+                                    })}
                                 </div>
-                            </Card>
+                            </div>
                         );
                     })}
+
+                    {/* Uncategorized Courses */}
+                    {courses.filter(c => !c.folderId).filter(c => (!c.level || c.level === user?.cohort) && (!c.subject || c.subject === user?.department) && c.published !== false).length > 0 && (
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                                <Folder size={24} color="var(--text-tertiary)" />
+                                <h2 style={{ margin: 0, fontSize: '1.6rem' }}>Other Courses</h2>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+                                {courses.filter(c => !c.folderId)
+                                    .filter(c => (!c.level || c.level === user?.cohort) && (!c.subject || c.subject === user?.department) && c.published !== false)
+                                    .map(course => {
+                                        // Calc progress
+                                        const cQuizzes = quizzes.filter(q => q.courseId === course.id);
+                                        const cLessons = lessons.filter(l => l.courseId === course.id);
+                                        const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
+                                        const totalItems = cQuizzes.length + cLessons.length + cWalkthroughs.length;
+
+                                        const completedQ = cQuizzes.filter(q => completedQuizzes.includes(q.id)).length;
+                                        const completedL = cLessons.filter(l => completedLessons.includes(l.id)).length;
+                                        const completedW = cWalkthroughs.filter(w => completedWalkthroughs.includes(w.id)).length;
+                                        const totalCompleted = completedQ + completedL + completedW;
+
+                                        const percent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+
+                                        return (
+                                            <Card
+                                                key={course.id}
+                                                hover elevated
+                                                onClick={() => setActiveCourseId(course.id)}
+                                                style={{ cursor: 'pointer', borderTop: `4px solid ${course.color}` }}
+                                            >
+                                                <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{course.title}</h3>
+                                                <div style={{
+                                                    color: 'var(--text-secondary)',
+                                                    marginBottom: '1.5rem',
+                                                    fontSize: '0.95rem',
+                                                    lineHeight: '1.6'
+                                                }}>
+                                                    <RichTextViewer content={course.description} />
+                                                </div>
+
+                                                {/* Progress Section */}
+                                                <div style={{ marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Progress</span>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                            {percent === 100 && (
+                                                                <CheckCircle2 size={16} color="var(--color-success)" />
+                                                            )}
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: percent === 100 ? 'var(--color-success)' : 'var(--text-primary)' }}>
+                                                                {totalCompleted}/{totalItems} ({percent}%)
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <ProgressBar
+                                                        current={totalCompleted}
+                                                        total={totalItems}
+                                                        showPercentage={false}
+                                                        color={course.color || 'var(--color-brand-cyan)'}
+                                                    />
+                                                </div>
+                                            </Card>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* No Courses State */}
+                    {(!courses || courses.filter(c => (!c.level || c.level === user?.cohort) && (!c.subject || c.subject === user?.department) && c.published !== false).length === 0) && (
+                        <div style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
+                            <p style={{ color: 'var(--text-secondary)' }}>No courses available for your cohort yet.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </PageTransition>

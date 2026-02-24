@@ -6,26 +6,21 @@ import {
     Users,
     BookOpen,
     AlertCircle,
-    PlusCircle,
-    CheckCircle
+    CheckCircle,
+    Heart
 } from 'lucide-react';
 import WeeklyCalendarWidget from '../components/WeeklyCalendarWidget';
 import CohortProgressWidget from '../components/dashboard/CohortProgressWidget';
-import { useStudents } from '../context/StudentsContext';
-import { useCurriculum } from '../context/CurriculumContext';
 import { useSubmissions } from '../context/SubmissionContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useUser } from '../context/UserContext';
 
 const TeacherDashboard: React.FC = () => {
     const navigate = useNavigate();
-    const { students } = useStudents();
-    const { projects } = useCurriculum();
     const { submissions } = useSubmissions();
     const { t } = useLanguage();
 
     // Calculate Real Stats
-    const totalStudents = students.filter((s: any) => s.status === 'Active').length;
-    const activeProjects = projects.filter(p => p.published).length;
     const pendingAssessments = submissions.filter(s => s.status === 'Pending Mark').length;
 
     // Quick Actions
@@ -58,6 +53,13 @@ const TeacherDashboard: React.FC = () => {
             path: '/teacher/quizzes',
             desc: t('teacher.dashboard.qa.manageContent')
         },
+        {
+            name: 'Support & Wellbeing',
+            icon: <Heart size={24} />,
+            color: 'var(--color-error)',
+            path: '/support',
+            desc: 'Access staff resources'
+        }
     ];
 
     const renderActionCard = (action: any) => (
@@ -91,18 +93,18 @@ const TeacherDashboard: React.FC = () => {
         </Card>
     );
 
+    const { user } = useUser();
+    const firstName = user?.name?.split(' ')[0] || '';
+
     return (
         <div style={{ paddingBottom: 'var(--space-12)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
                 <div>
                     <h1 style={{ margin: 0, fontSize: '2rem', background: 'linear-gradient(45deg, var(--text-primary), var(--text-secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        {t('teacher.dashboard.title')}
+                        {t('teacher.dashboard.title')}{firstName ? `, ${firstName}` : ''}
                     </h1>
                     <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>{t('teacher.dashboard.subtitle')}</p>
                 </div>
-                <Button onClick={() => navigate('/teacher/projects')} variant="primary">
-                    <PlusCircle size={18} style={{ marginRight: '8px' }} /> {t('teacher.dashboard.newProject')}
-                </Button>
             </div>
 
             {/* Top Section: Quick Actions - Progress Widget - Quick Actions */}
@@ -120,33 +122,12 @@ const TeacherDashboard: React.FC = () => {
 
                 {/* Right Actions */}
                 <div className="quick-actions-col">
-                    {quickActions.slice(2, 4).map(renderActionCard)}
+                    {quickActions.slice(2, 5).map(renderActionCard)}
                 </div>
             </div>
 
             {/* Key Stats Row (Moved Below) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-10)' }}>
-                <Card elevated style={{ position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-brand-blue)', marginBottom: 'var(--space-2)' }}>
-                            <Users size={20} />
-                            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>{t('teacher.dashboard.activeStudents')}</span>
-                        </div>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>{totalStudents}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t('teacher.dashboard.enrolledCohorts')}</div>
-                    </div>
-                </Card>
-
-                <Card elevated style={{ position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-brand-purple)', marginBottom: 'var(--space-2)' }}>
-                            <BookOpen size={20} />
-                            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>{t('teacher.dashboard.activeProjects')}</span>
-                        </div>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>{activeProjects}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{t('teacher.dashboard.publishedLive')}</div>
-                    </div>
-                </Card>
 
                 {/* Conditional Marking Backlog Card as 3rd Stat Card */}
                 {pendingAssessments > 0 && (
@@ -173,13 +154,14 @@ const TeacherDashboard: React.FC = () => {
                 )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-8)', marginTop: 'var(--space-12)' }}>
-                {/* Weekly Calendar - Full Width now since actions are moved */}
-                <div>
-                    {/* Can be full width or maybe keep it side-by-side with something else later */}
+            <div className="dashboard-bottom-grid" style={{ marginTop: 'var(--space-12)' }}>
+                {/* Weekly Calendar */}
+                <div style={{ flex: 1, minWidth: 0 }}>
                     <WeeklyCalendarWidget />
                 </div>
             </div>
+
+
 
             <style>{`
                 .hover-card:hover {
@@ -210,12 +192,23 @@ const TeacherDashboard: React.FC = () => {
                     /* Move widget to top */
                     .dashboard-top-grid > :nth-child(2) { order: -1; }
                     
-                    /* 2x2 Grid for Action Columns on Mobile */
+                    /* Grid for Action Columns on Mobile */
                     .quick-actions-col {
                         display: grid;
-                        grid-template-columns: 1fr 1fr;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                         gap: var(--space-4);
                     }
+                    
+                    .dashboard-bottom-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+                
+                .dashboard-bottom-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: var(--space-8);
+                    align-items: stretch;
                 }
             `}</style>
         </div>

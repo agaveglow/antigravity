@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useUser } from './UserContext';
 import { useNotifications } from './NotificationContext';
 
 export interface Evidence {
@@ -30,6 +31,10 @@ export interface Submission {
     verifiedAt?: string;
     verificationRequested?: boolean;
     verificationRequestedAt?: string;
+    // IV Fields
+    ivStatus?: 'Pending' | 'Verified' | 'Action Required';
+    ivFeedback?: string;
+    ivVerifiedBy?: string;
 }
 
 interface SubmissionContextType {
@@ -51,6 +56,7 @@ const SubmissionContext = createContext<SubmissionContextType | undefined>(undef
 export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { user } = useUser(); // Get user from context
     const { createNotification, triggerCelebration } = useNotifications();
 
     const loadSubmissions = async () => {
@@ -82,7 +88,10 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     verifiedBy: s.verified_by || s.verifiedBy,
                     verifiedAt: s.verified_at || s.verifiedAt,
                     verificationRequested: s.verification_requested || s.verificationRequested || false,
-                    verificationRequestedAt: s.verification_requested_at || s.verificationRequestedAt
+                    verificationRequestedAt: s.verification_requested_at || s.verificationRequestedAt,
+                    ivStatus: s.iv_status,
+                    ivFeedback: s.iv_feedback,
+                    ivVerifiedBy: s.iv_verified_by
                 })));
             }
         } catch (e) {
@@ -92,6 +101,12 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     useEffect(() => {
+        if (!user) {
+            setSubmissions([]);
+            setIsLoading(false);
+            return;
+        }
+
         loadSubmissions();
 
         // Subscription
@@ -102,7 +117,7 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [user]);
 
     const addSubmission = async (submission: Submission) => {
         // Optimistic update
@@ -130,7 +145,10 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             verified_by: submission.verifiedBy,
             verified_at: submission.verifiedAt,
             verification_requested: submission.verificationRequested,
-            verification_requested_at: submission.verificationRequestedAt
+            verification_requested_at: submission.verificationRequestedAt,
+            iv_status: submission.ivStatus,
+            iv_feedback: submission.ivFeedback,
+            iv_verified_by: submission.ivVerifiedBy
         };
 
         let currentPayload = { ...dbSubmission };
@@ -161,6 +179,19 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 break;
             }
             success = true;
+
+            // Trigger notification if task is verified
+            if (success && submission.status === 'Verified') {
+                await createNotification(
+                    submission.studentId,
+                    'Task Verified',
+                    `Your task "${submission.taskTitle || 'task'}" has been verified!`,
+                    'task_verified',
+                    `/student/projects/${submission.projectId}`,
+                    submission.taskId,
+                    'task'
+                );
+            }
         }
     };
 
@@ -181,6 +212,9 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (updates.verifiedAt) dbUpdates.verified_at = updates.verifiedAt;
         if (updates.verificationRequested !== undefined) dbUpdates.verification_requested = updates.verificationRequested;
         if (updates.verificationRequestedAt) dbUpdates.verification_requested_at = updates.verificationRequestedAt;
+        if (updates.ivStatus) dbUpdates.iv_status = updates.ivStatus;
+        if (updates.ivFeedback !== undefined) dbUpdates.iv_feedback = updates.ivFeedback;
+        if (updates.ivVerifiedBy) dbUpdates.iv_verified_by = updates.ivVerifiedBy;
 
         let currentPayload = { ...dbUpdates };
         let success = false;
@@ -211,54 +245,88 @@ export const SubmissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             }
             success = true;
 
-            // Trigger celebration if task was just verified
-            if (success && updates.status === 'Verified' && originalSubmission && originalSubmission.status !== 'Verified') {
-                // Task verification celebration
-                triggerCelebration({
-                    type: 'task_verified',
-                    title: 'Task Verified! 🎉',
-                    message: `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
-                    icon: '✅',
-                    color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    xpGained: 50 // Default XP for task verification
-                });
-
-                // Create persistent notification
-                await createNotification(
-                    originalSubmission.studentId,
-                    'Task Verified',
-                    `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
-                    'task_verified',
-                    `/student/projects/${originalSubmission.projectId}`,
-                    originalSubmission.taskId,
-                    'task'
-                );
-
-                // Check if this completes the project
-                const projectSubmissions = submissions.filter(s => s.projectId === originalSubmission.projectId && s.studentId === originalSubmission.studentId);
-                const allVerified = projectSubmissions.every(s => s.id === id ? updates.status === 'Verified' : s.status === 'Verified');
-
-                if (allVerified && projectSubmissions.length > 0) {
-                    // Project completion celebration
+            // Trigger celebration and notifications if task was just verified
+            if (success && originalSubmission) {
+                if (updates.status === 'Verified' && originalSubmission.status !== 'Verified') {
+                    // Task verification celebration
                     triggerCelebration({
-                        type: 'project_completed',
-                        title: 'Project Completed! 🎊',
-                        message: 'Congratulations! You have completed all tasks in this project!',
-                        icon: '🎉',
-                        color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                        xpGained: 200 // Bonus XP for project completion
+                        type: 'task_verified',
+                        title: 'Task Verified! 🎉',
+                        message: `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
+                        icon: '✅',
+                        color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        xpGained: 50 // Default XP for task verification
                     });
 
-                    // Create persistent notification for project completion
+                    // Create persistent notification
                     await createNotification(
                         originalSubmission.studentId,
-                        'Project Completed',
-                        'Congratulations! You have completed all tasks in this project!',
-                        'project_completed',
+                        'Task Verified',
+                        `Your task "${originalSubmission.taskTitle || 'task'}" has been verified!`,
+                        'task_verified',
                         `/student/projects/${originalSubmission.projectId}`,
-                        originalSubmission.projectId,
-                        'project'
+                        originalSubmission.taskId,
+                        'task'
                     );
+                }
+
+                // Trigger notification if IV status changed to Verified
+                if (updates.ivStatus === 'Verified' && originalSubmission.ivStatus !== 'Verified') {
+                    await createNotification(
+                        originalSubmission.studentId,
+                        'Assessment Verified (IV)',
+                        `Internal verification for "${originalSubmission.taskTitle || 'task'}" is complete.`,
+                        'success',
+                        `/student/projects/${originalSubmission.projectId}`,
+                        originalSubmission.taskId,
+                        'task'
+                    );
+                }
+
+                // Trigger notification if IV status changed to Action Required
+                if (updates.ivStatus === 'Action Required' && originalSubmission.ivStatus !== 'Action Required') {
+                    await createNotification(
+                        originalSubmission.studentId,
+                        'Action Required (IV)',
+                        `Internal verification for "${originalSubmission.taskTitle || 'task'}" requires attention.`,
+                        'warning',
+                        `/student/projects/${originalSubmission.projectId}`,
+                        originalSubmission.taskId,
+                        'task'
+                    );
+                }
+
+                // Check if this completes the project
+                if (updates.status === 'Verified' || updates.ivStatus === 'Verified') {
+                    const projectSubmissions = submissions.filter(s => s.projectId === originalSubmission.projectId && s.studentId === originalSubmission.studentId);
+                    const allVerified = projectSubmissions.every(s =>
+                        s.id === id
+                            ? (updates.status === 'Verified' || updates.ivStatus === 'Verified')
+                            : (s.status === 'Verified' || s.ivStatus === 'Verified')
+                    );
+
+                    if (allVerified && projectSubmissions.length > 0) {
+                        // Project completion celebration
+                        triggerCelebration({
+                            type: 'project_completed',
+                            title: 'Project Completed! 🎊',
+                            message: 'Congratulations! You have completed all tasks in this project!',
+                            icon: '🎉',
+                            color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            xpGained: 200 // Bonus XP for project completion
+                        });
+
+                        // Create persistent notification for project completion
+                        await createNotification(
+                            originalSubmission.studentId,
+                            'Project Completed',
+                            'Congratulations! You have completed all tasks in this project!',
+                            'project_completed',
+                            `/student/projects/${originalSubmission.projectId}`,
+                            originalSubmission.projectId,
+                            'project'
+                        );
+                    }
                 }
             }
         }

@@ -1,28 +1,28 @@
 .card {
     background-color: var(--bg-surface);
     color: var(--text-primary);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: var(--border-radius-lg);
-    border: 1px solid var(--color-primary);
-    box-shadow: 0 0 15px var(--color-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     padding: var(--space-6);
-    /* Increased internal padding */
-    transition: all 0.3s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     height: 100%;
-    /* Ensure card fills grid cell height */
     display: flex;
     flex-direction: column;
+    will-change: transform, box-shadow;
 }
 
-.card.elevated {
+.card-elevated {
     box-shadow: var(--shadow-md);
-    border-color: transparent;
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
-.card:hover {
-    transform: translateY(-2px);
+.card-hover:hover {
+    transform: translateY(-4px);
     box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
 }
 
 /* Shapes */

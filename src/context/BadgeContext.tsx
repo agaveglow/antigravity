@@ -32,6 +32,11 @@ export function BadgeProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (user) {
             loadData();
+        } else {
+            setBadges([]);
+            setBadgeAttachments([]);
+            setStudentBadges([]);
+            setIsLoading(false);
         }
     }, [user]);
 

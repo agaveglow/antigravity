@@ -56,9 +56,20 @@ const StudentProgressDashboard: React.FC = () => {
                 const studentProgress = allProgress?.filter(p => p.student_id === student.id) || [];
                 const studentSubmissions = submissions.filter(s => s.studentId === student.id);
 
+                // --- Filter Relevant Content ---
+                const relevantCourses = courses.filter(c =>
+                    (!c.level || c.level === student?.cohort) &&
+                    (!c.subject || c.subject === student?.department)
+                );
+
+                const relevantProjects = projects.filter(p =>
+                    (!p.cohort || p.cohort === student?.cohort) &&
+                    (!p.subject || p.subject === student?.department)
+                );
+
                 // --- Calculate Course Progress ---
                 const courseProgress: Record<string, number> = {};
-                courses.forEach(course => {
+                relevantCourses.forEach(course => {
                     const cQuizzes = quizzes.filter(q => q.courseId === course.id);
                     const cLessons = lessons.filter(l => l.courseId === course.id);
                     const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
@@ -80,7 +91,7 @@ const StudentProgressDashboard: React.FC = () => {
 
                 // --- Calculate Project Progress ---
                 const projectProgress: Record<string, number> = {};
-                projects.forEach(project => {
+                relevantProjects.forEach(project => {
                     const totalTasks = project.tasks.length;
                     if (totalTasks === 0) {
                         projectProgress[project.id] = 0;

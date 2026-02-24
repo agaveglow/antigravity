@@ -1,21 +1,35 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useUser } from './UserContext';
 
 // --- Types ---
+export interface EquipmentLog {
+    id: string;
+    userId: string;
+    userName: string;
+    date: string;
+    note: string;
+    type: 'Usage' | 'Damage' | 'Maintenance';
+}
+
 export interface Studio {
     id: string;
     name: string;
     capacity: number;
     equipment: string[];
     imageUrl?: string;
+    logs?: EquipmentLog[];
 }
 
 export interface Equipment {
     id: string;
     name: string;
+    label?: string;
     category: 'Microphone' | 'Instrument' | 'Cable' | 'Interface' | 'Other';
     totalQty: number;
     availableQty: number;
     imageUrl?: string;
+    logs?: EquipmentLog[];
 }
 
 export type BookingStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
@@ -47,194 +61,335 @@ interface ResourceContextType {
     equipment: Equipment[];
     bookings: StudioBooking[];
     loans: EquipmentLoan[];
+    isLoading: boolean;
+
+    refreshData: () => Promise<void>;
 
     // Actions
-    addStudio: (studio: Omit<Studio, 'id'>) => void;
-    updateStudio: (id: string, updates: Partial<Studio>) => void;
-    deleteStudio: (id: string) => void;
+    addStudio: (studio: Omit<Studio, 'id'>) => Promise<void>;
+    updateStudio: (id: string, updates: Partial<Studio>) => Promise<void>;
+    deleteStudio: (id: string) => Promise<void>;
+    addStudioLog: (studioId: string, log: Omit<EquipmentLog, 'id'>) => Promise<void>;
 
-    addEquipment: (item: Omit<Equipment, 'id'>) => void;
-    updateEquipment: (id: string, updates: Partial<Equipment>) => void;
-    deleteEquipment: (id: string) => void;
+    addEquipment: (item: Omit<Equipment, 'id'>) => Promise<void>;
+    updateEquipment: (id: string, updates: Partial<Equipment>) => Promise<void>;
+    deleteEquipment: (id: string) => Promise<void>;
+    addEquipmentLog: (equipmentId: string, log: Omit<EquipmentLog, 'id'>) => Promise<void>;
 
-    bookStudio: (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => void;
-    updateBookingStatus: (id: string, status: BookingStatus) => void;
+    bookStudio: (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => Promise<void>;
+    updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
 
-    requestLoan: (loan: Omit<EquipmentLoan, 'id' | 'status' | 'userName'>) => boolean;
-    updateLoanStatus: (id: string, status: LoanStatus) => void;
+    requestLoan: (loan: Omit<EquipmentLoan, 'id' | 'status' | 'userName'>) => Promise<boolean>;
+    updateLoanStatus: (id: string, status: LoanStatus) => Promise<void>;
 }
 
 const ResourceContext = createContext<ResourceContextType | undefined>(undefined);
 
-// --- Mock Data ---
-const INITIAL_STUDIOS: Studio[] = [
-    { id: 'studio-a', name: 'Studio A (Main Live Room)', capacity: 10, equipment: ['Drum Kit', 'Piano', 'Amps'] },
-    { id: 'studio-b', name: 'Studio B (Vocal Booth)', capacity: 2, equipment: ['Neumann U87', 'Pro Tools HD'] },
-    { id: 'suite-1', name: 'Production Suite 1', capacity: 3, equipment: ['Mac Studio', 'Logic Pro', 'Ableton'] },
-];
-
-const INITIAL_EQUIPMENT: Equipment[] = [
-    { id: 'sm58', name: 'Shure SM58', category: 'Microphone', totalQty: 10, availableQty: 8 },
-    { id: 'sm57', name: 'Shure SM57', category: 'Microphone', totalQty: 8, availableQty: 6 },
-    { id: 'focusrite', name: 'Scarlett 2i2', category: 'Interface', totalQty: 15, availableQty: 12 },
-    { id: 'ts-cable', name: 'Instrument Cable (10ft)', category: 'Cable', totalQty: 50, availableQty: 40 },
-    { id: 'strat', name: 'Fender Stratocaster', category: 'Instrument', totalQty: 3, availableQty: 2 },
-];
-
 export const ResourceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // In a real app, these would come from an API/Database
-    const [studios, setStudios] = useState<Studio[]>(() => {
-        try {
-            const saved = localStorage.getItem('erc-studios');
-            return saved ? JSON.parse(saved) : INITIAL_STUDIOS;
-        } catch (e) {
-            console.error("Failed to parse studios:", e);
-            return INITIAL_STUDIOS;
-        }
-    });
+    const [studios, setStudios] = useState<Studio[]>([]);
+    const [equipment, setEquipment] = useState<Equipment[]>([]);
+    const [bookings, setBookings] = useState<StudioBooking[]>([]);
+    const [loans, setLoans] = useState<EquipmentLoan[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { user } = useUser(); // Added useUser
 
-    const [equipment, setEquipment] = useState<Equipment[]>(() => {
+    const loadData = async () => {
+        setIsLoading(true);
         try {
-            const saved = localStorage.getItem('erc-equipment');
-            return saved ? JSON.parse(saved) : INITIAL_EQUIPMENT;
-        } catch (e) {
-            console.error("Failed to parse equipment:", e);
-            return INITIAL_EQUIPMENT;
-        }
-    });
+            const [
+                { data: sData },
+                { data: eData },
+                { data: bData },
+                { data: lData },
+                { data: logsData }
+            ] = await Promise.all([
+                supabase.from('studios').select('*'),
+                supabase.from('equipment').select('*'),
+                supabase.from('studio_bookings').select('*'),
+                supabase.from('equipment_loans').select('*'),
+                supabase.from('equipment_logs').select('*')
+            ]);
 
-    const [bookings, setBookings] = useState<StudioBooking[]>(() => {
-        try {
-            const saved = localStorage.getItem('erc-bookings');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            console.error("Failed to parse bookings:", e);
-            return [];
-        }
-    });
+            const mappedLogs = (logsData || []).map(log => ({
+                id: log.id,
+                equipmentId: log.equipment_id,
+                studioId: log.studio_id,
+                userId: log.user_id,
+                userName: log.user_name,
+                date: log.date,
+                note: log.note,
+                type: log.type as 'Usage' | 'Damage' | 'Maintenance'
+            }));
 
-    const [loans, setLoans] = useState<EquipmentLoan[]>(() => {
-        try {
-            const saved = localStorage.getItem('erc-loans');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            console.error("Failed to parse loans:", e);
-            return [];
-        }
-    });
+            if (sData) {
+                setStudios(sData.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    capacity: s.capacity,
+                    equipment: s.equipment, // JSONB text array
+                    imageUrl: s.image_url,
+                    logs: mappedLogs.filter(l => l.studioId === s.id)
+                })));
+            }
 
-    // Persistence
-    useEffect(() => localStorage.setItem('erc-studios', JSON.stringify(studios)), [studios]);
-    useEffect(() => localStorage.setItem('erc-equipment', JSON.stringify(equipment)), [equipment]);
-    useEffect(() => localStorage.setItem('erc-bookings', JSON.stringify(bookings)), [bookings]);
-    useEffect(() => localStorage.setItem('erc-loans', JSON.stringify(loans)), [loans]);
+            if (eData) {
+                setEquipment(eData.map(e => ({
+                    id: e.id,
+                    name: e.name,
+                    label: e.label,
+                    category: e.category as any,
+                    totalQty: e.total_qty,
+                    availableQty: e.available_qty,
+                    imageUrl: e.image_url,
+                    logs: mappedLogs.filter(l => l.equipmentId === e.id)
+                })));
+            }
+
+            if (bData) {
+                setBookings(bData.map(b => ({
+                    id: b.id,
+                    studioId: b.studio_id,
+                    userId: b.user_id,
+                    userName: b.user_name,
+                    startTime: b.start_time,
+                    endTime: b.end_time,
+                    purpose: b.purpose,
+                    status: b.status as BookingStatus
+                })));
+            }
+
+            if (lData) {
+                setLoans(lData.map(l => ({
+                    id: l.id,
+                    equipmentId: l.equipment_id,
+                    userId: l.user_id,
+                    userName: l.user_name,
+                    requestDate: l.request_date,
+                    returnDate: l.return_date,
+                    status: l.status as LoanStatus,
+                    qty: l.qty
+                })));
+            }
+        } catch (e) {
+            console.error("Error loading resources:", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            loadData();
+        } else {
+            setStudios([]);
+            setEquipment([]);
+            setBookings([]);
+            setLoans([]);
+            setIsLoading(false);
+        }
+    }, [user]);
+
+    // Helper inside Context for fetching current logged-in user session
+    const getCurrentUser = async () => {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) return { userId: '', userName: 'Unknown User' };
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, id')
+            .eq('id', data.user.id)
+            .single();
+
+        return {
+            userId: profile?.id || data.user.id,
+            userName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User'
+        };
+    };
 
     // --- Actions ---
 
-    const addStudio = (studio: Omit<Studio, 'id'>) => {
-        const newStudio = { ...studio, id: Date.now().toString() };
-        setStudios(prev => [...prev, newStudio]);
+    const addStudio = async (studio: Omit<Studio, 'id'>) => {
+        const id = Date.now().toString(); // Fallback if using local generation for ID text primary key
+        await supabase.from('studios').insert({
+            id,
+            name: studio.name,
+            capacity: studio.capacity,
+            equipment: studio.equipment,
+            image_url: studio.imageUrl
+        });
+        await loadData();
     };
 
-    const updateStudio = (id: string, updates: Partial<Studio>) => {
-        setStudios(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    const updateStudio = async (id: string, updates: Partial<Studio>) => {
+        const payload: any = {};
+        if (updates.name !== undefined) payload.name = updates.name;
+        if (updates.capacity !== undefined) payload.capacity = updates.capacity;
+        if (updates.equipment !== undefined) payload.equipment = updates.equipment;
+        if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+
+        await supabase.from('studios').update(payload).eq('id', id);
+        await loadData();
     };
 
-    const deleteStudio = (id: string) => {
-        setStudios(prev => prev.filter(s => s.id !== id));
+    const deleteStudio = async (id: string) => {
+        await supabase.from('studios').delete().eq('id', id);
+        await loadData();
     };
 
-    const addEquipment = (item: Omit<Equipment, 'id'>) => {
-        const newItem = { ...item, id: Date.now().toString() };
-        setEquipment(prev => [...prev, newItem]);
+    const addStudioLog = async (studioId: string, log: Omit<EquipmentLog, 'id'>) => {
+        await supabase.from('equipment_logs').insert({
+            studio_id: studioId,
+            user_id: log.userId,
+            user_name: log.userName,
+            date: log.date,
+            note: log.note,
+            type: log.type
+        });
+        await loadData();
     };
 
-    const updateEquipment = (id: string, updates: Partial<Equipment>) => {
-        setEquipment(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    const addEquipment = async (item: Omit<Equipment, 'id'>) => {
+        const id = Date.now().toString();
+        await supabase.from('equipment').insert({
+            id,
+            name: item.name,
+            label: item.label,
+            category: item.category,
+            total_qty: item.totalQty,
+            available_qty: item.availableQty,
+            image_url: item.imageUrl
+        });
+        await loadData();
     };
 
-    const deleteEquipment = (id: string) => {
-        setEquipment(prev => prev.filter(e => e.id !== id));
+    const updateEquipment = async (id: string, updates: Partial<Equipment>) => {
+        const payload: any = {};
+        if (updates.name !== undefined) payload.name = updates.name;
+        if (updates.label !== undefined) payload.label = updates.label;
+        if (updates.category !== undefined) payload.category = updates.category;
+        if (updates.totalQty !== undefined) payload.totalQty = updates.totalQty;
+        if (updates.availableQty !== undefined) payload.available_qty = updates.availableQty;
+        if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+
+        await supabase.from('equipment').update(payload).eq('id', id);
+        await loadData();
     };
 
-    const bookStudio = (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => {
-        // Mock user name retrieval (would be handled by backend/auth usually)
-        // For now, we assume the UI passes the ID, and we just placeholders or local lookup if needed
-        // But the interface asks for userName to be omitted. We'll grab it from localStorage or Context if possible?
-        // Actually, to keep context decoupled, let's look it up or accept it. 
-        // Simplification: We'll retrieve it from localStorage 'erc-user-student' or just use 'Student'
+    const deleteEquipment = async (id: string) => {
+        await supabase.from('equipment').delete().eq('id', id);
+        await loadData();
+    };
 
-        // Simulating fetching current user name (hacky but works for demo)
-        let userName = 'Student';
-        try {
-            const role = localStorage.getItem('erc-role');
-            if (role) {
-                const userStr = localStorage.getItem(`erc-user-${role}`);
-                if (userStr) userName = JSON.parse(userStr).name;
+    const addEquipmentLog = async (equipmentId: string, log: Omit<EquipmentLog, 'id'>) => {
+        await supabase.from('equipment_logs').insert({
+            equipment_id: equipmentId,
+            user_id: log.userId,
+            user_name: log.userName,
+            date: log.date,
+            note: log.note,
+            type: log.type
+        });
+        await loadData();
+    };
+
+    const bookStudio = async (booking: Omit<StudioBooking, 'id' | 'status' | 'userName'>) => {
+        const user = await getCurrentUser();
+        await supabase.from('studio_bookings').insert({
+            studio_id: booking.studioId,
+            user_id: booking.userId || user.userId,
+            user_name: user.userName,
+            start_time: booking.startTime,
+            end_time: booking.endTime,
+            purpose: booking.purpose,
+            status: 'Pending'
+        });
+        await loadData();
+    };
+
+    const updateBookingStatus = async (id: string, status: BookingStatus) => {
+        const booking = bookings.find(b => b.id === id);
+        if (!booking) return;
+
+        await supabase.from('studio_bookings').update({ status }).eq('id', id);
+
+        if (status !== booking.status) {
+            let note = '';
+            if (status === 'Approved') note = `Booking approved for ${booking.purpose}`;
+            else if (status === 'Rejected') note = `Booking rejected`;
+            else if (status === 'Cancelled') note = `Booking cancelled`;
+
+            if (note) {
+                await addStudioLog(booking.studioId, {
+                    userId: booking.userId,
+                    userName: booking.userName,
+                    date: new Date().toISOString(),
+                    note,
+                    type: 'Usage'
+                });
             }
-        } catch (e) { }
-
-        const newBooking: StudioBooking = {
-            ...booking,
-            id: Date.now().toString(),
-            status: 'Pending',
-            userName
-        };
-        setBookings(prev => [...prev, newBooking]);
+        }
+        await loadData();
     };
 
-    const updateBookingStatus = (id: string, status: BookingStatus) => {
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
-    };
-
-    const requestLoan = (loan: Omit<EquipmentLoan, 'id' | 'status' | 'userName'>) => {
+    const requestLoan = async (loan: Omit<EquipmentLoan, 'id' | 'status' | 'userName'>) => {
         const item = equipment.find(e => e.id === loan.equipmentId);
         if (!item || item.availableQty < loan.qty) return false;
 
-        // Deduct stock immediately (pessimistic) or wait for approval?
-        // Let's deduct immediately to prevent overbooking, release if rejected.
-        updateEquipment(loan.equipmentId, { availableQty: item.availableQty - loan.qty });
+        // Deduct optimistically
+        await updateEquipment(item.id, { availableQty: item.availableQty - loan.qty });
 
-        let userName = 'Student';
-        try {
-            const role = localStorage.getItem('erc-role');
-            if (role) {
-                const userStr = localStorage.getItem(`erc-user-${role}`);
-                if (userStr) userName = JSON.parse(userStr).name;
-            }
-        } catch (e) { }
-
-        const newLoan: EquipmentLoan = {
-            ...loan,
-            id: Date.now().toString(),
+        const user = await getCurrentUser();
+        const { error } = await supabase.from('equipment_loans').insert({
+            equipment_id: loan.equipmentId,
+            user_id: loan.userId || user.userId,
+            user_name: user.userName,
+            request_date: loan.requestDate,
+            return_date: loan.returnDate,
             status: 'Pending',
-            userName
-        };
-        setLoans(prev => [...prev, newLoan]);
+            qty: loan.qty
+        });
+
+        if (error) {
+            // Revert deduction
+            await updateEquipment(item.id, { availableQty: item.availableQty });
+            return false;
+        }
+
+        await loadData();
         return true;
     };
 
-    const updateLoanStatus = (id: string, status: LoanStatus) => {
-        setLoans(prev => prev.map(l => {
-            if (l.id === id) {
-                // If rejected or returned, return stock
-                if ((status === 'Rejected' || status === 'Returned') && (l.status === 'Pending' || l.status === 'Active' || l.status === 'Overdue')) {
-                    const item = equipment.find(e => e.id === l.equipmentId);
-                    if (item) {
-                        updateEquipment(item.id, { availableQty: item.availableQty + l.qty });
-                    }
+    const updateLoanStatus = async (id: string, status: LoanStatus) => {
+        const loan = loans.find(l => l.id === id);
+        if (!loan) return;
+
+        await supabase.from('equipment_loans').update({ status }).eq('id', id);
+
+        if ((status === 'Rejected' || status === 'Returned') && (loan.status === 'Pending' || loan.status === 'Active' || loan.status === 'Overdue')) {
+            const item = equipment.find(e => e.id === loan.equipmentId);
+            if (item) {
+                await updateEquipment(item.id, { availableQty: item.availableQty + loan.qty });
+
+                if (status === 'Returned') {
+                    await addEquipmentLog(item.id, {
+                        userId: loan.userId,
+                        userName: loan.userName,
+                        date: new Date().toISOString(),
+                        note: `Returned ${loan.qty}x by ${loan.userName}`,
+                        type: 'Usage'
+                    });
                 }
-                return { ...l, status };
             }
-            return l;
-        }));
+        }
+        await loadData();
     };
 
     return (
         <ResourceContext.Provider value={{
-            studios, equipment, bookings, loans,
-            addStudio, updateStudio, deleteStudio,
-            addEquipment, updateEquipment, deleteEquipment,
+            studios, equipment, bookings, loans, isLoading,
+            refreshData: loadData,
+            addStudio, updateStudio, deleteStudio, addStudioLog,
+            addEquipment, updateEquipment, deleteEquipment, addEquipmentLog,
             bookStudio, updateBookingStatus,
             requestLoan, updateLoanStatus
         }}>

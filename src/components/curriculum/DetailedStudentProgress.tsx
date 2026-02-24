@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useQuizzes } from '../../context/QuizContext';
 import { useCurriculum } from '../../context/CurriculumContext';
 import { useSubmissions } from '../../context/SubmissionContext';
+import { useStudents } from '../../context/StudentsContext';
 import ProgressBar from '../common/ProgressBar';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -16,6 +17,7 @@ const DetailedStudentProgress: React.FC<DetailedStudentProgressProps> = ({ stude
     const { courses, quizzes, lessons, walkthroughs, stages, modules } = useQuizzes();
     const { projects } = useCurriculum();
     const { submissions } = useSubmissions();
+    const { getStudentById } = useStudents();
 
     const [loading, setLoading] = useState(true);
     const [progressData, setProgressData] = useState<{
@@ -43,11 +45,23 @@ const DetailedStudentProgress: React.FC<DetailedStudentProgressProps> = ({ stude
 
             if (error) throw error;
 
+            const student = getStudentById(studentId);
             const studentSubmissions = submissions.filter(s => s.studentId === studentId);
+
+            // --- Filter Relevant Content ---
+            const relevantCourses = courses.filter(c =>
+                (!c.level || c.level === student?.cohort) &&
+                (!c.subject || c.subject === student?.department)
+            );
+
+            const relevantProjects = projects.filter(p =>
+                (!p.cohort || p.cohort === student?.cohort) &&
+                (!p.subject || p.subject === student?.department)
+            );
 
             // --- Calculate Course Progress ---
             const courseProgress: Record<string, number> = {};
-            courses.forEach(course => {
+            relevantCourses.forEach(course => {
                 const cQuizzes = quizzes.filter(q => q.courseId === course.id);
                 const cLessons = lessons.filter(l => l.courseId === course.id);
                 const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
@@ -69,7 +83,7 @@ const DetailedStudentProgress: React.FC<DetailedStudentProgressProps> = ({ stude
 
             // --- Calculate Project Progress ---
             const projectProgress: Record<string, number> = {};
-            projects.forEach(project => {
+            relevantProjects.forEach(project => {
                 const totalTasks = project.tasks.length;
                 if (totalTasks === 0) {
                     projectProgress[project.id] = 0;
@@ -281,33 +295,38 @@ const DetailedStudentProgress: React.FC<DetailedStudentProgressProps> = ({ stude
                 <div>
                     <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Courses</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {courses.map(course => (
-                            <div
-                                key={course.id}
-                                onClick={() => setSelectedCourse(course.id)}
-                                style={{
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s',
-                                    padding: '8px',
-                                    borderRadius: '8px'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '4px' }}>
-                                    <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {course.title} <ChevronRight size={14} color="var(--text-tertiary)" />
-                                    </span>
-                                    <span>{progressData.courseProgress[course.id] || 0}%</span>
+                        {courses
+                            .filter(c => {
+                                const student = getStudentById(studentId);
+                                return (!c.level || c.level === student?.cohort) && (!c.subject || c.subject === student?.department);
+                            })
+                            .map(course => (
+                                <div
+                                    key={course.id}
+                                    onClick={() => setSelectedCourse(course.id)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s',
+                                        padding: '8px',
+                                        borderRadius: '8px'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {course.title} <ChevronRight size={14} color="var(--text-tertiary)" />
+                                        </span>
+                                        <span>{progressData.courseProgress[course.id] || 0}%</span>
+                                    </div>
+                                    <ProgressBar
+                                        current={progressData.courseProgress[course.id] || 0}
+                                        total={100}
+                                        showPercentage={false}
+                                        color={course.color || 'var(--color-brand-cyan)'}
+                                    />
                                 </div>
-                                <ProgressBar
-                                    current={progressData.courseProgress[course.id] || 0}
-                                    total={100}
-                                    showPercentage={false}
-                                    color={course.color || 'var(--color-brand-cyan)'}
-                                />
-                            </div>
-                        ))}
+                            ))}
                     </div>
                 </div>
 
@@ -315,33 +334,38 @@ const DetailedStudentProgress: React.FC<DetailedStudentProgressProps> = ({ stude
                 <div>
                     <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Projects</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {projects.map(project => (
-                            <div
-                                key={project.id}
-                                onClick={() => setSelectedProject(project.id)}
-                                style={{
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s',
-                                    padding: '8px',
-                                    borderRadius: '8px'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '4px' }}>
-                                    <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {project.title} <ChevronRight size={14} color="var(--text-tertiary)" />
-                                    </span>
-                                    <span>{progressData.projectProgress[project.id] || 0}%</span>
+                        {projects
+                            .filter(p => {
+                                const student = getStudentById(studentId);
+                                return (!p.cohort || p.cohort === student?.cohort) && (!p.subject || p.subject === student?.department);
+                            })
+                            .map(project => (
+                                <div
+                                    key={project.id}
+                                    onClick={() => setSelectedProject(project.id)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s',
+                                        padding: '8px',
+                                        borderRadius: '8px'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '4px' }}>
+                                        <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {project.title} <ChevronRight size={14} color="var(--text-tertiary)" />
+                                        </span>
+                                        <span>{progressData.projectProgress[project.id] || 0}%</span>
+                                    </div>
+                                    <ProgressBar
+                                        current={progressData.projectProgress[project.id] || 0}
+                                        total={100}
+                                        showPercentage={false}
+                                        color="var(--color-brand-purple)"
+                                    />
                                 </div>
-                                <ProgressBar
-                                    current={progressData.projectProgress[project.id] || 0}
-                                    total={100}
-                                    showPercentage={false}
-                                    color="var(--color-brand-purple)"
-                                />
-                            </div>
-                        ))}
+                            ))}
                         {projects.length === 0 && (
                             <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No projects assigned</div>
                         )}

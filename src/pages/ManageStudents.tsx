@@ -2,7 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { Search, Filter, Plus, User, AlertCircle, CheckCircle, X, Lock, RefreshCw } from 'lucide-react';
+import {
+    Search,
+    Filter,
+    Plus,
+    RefreshCw,
+    X,
+    Lock
+} from 'lucide-react';
 import PageTransition from '../components/common/PageTransition';
 import { useStudents, type Student } from '../context/StudentsContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -127,8 +134,6 @@ const ManageStudents: React.FC = () => {
 
     // Stats
     const totalStudents = students.length;
-    const activeCount = students.filter((s: Student) => s.status === 'Active').length;
-    const atRiskCount = students.filter((s: Student) => s.status === 'At Risk').length;
 
     // Debug logging
     React.useEffect(() => {
@@ -212,14 +217,6 @@ const ManageStudents: React.FC = () => {
                                 <h4 style={{ color: 'var(--text-secondary)' }}>{t('teacher.students.totalStudents')}</h4>
                                 <h2 style={{ fontSize: '2rem', margin: 'var(--space-2) 0' }}>{totalStudents}</h2>
                             </Card>
-                            <Card elevated>
-                                <h4 style={{ color: 'var(--text-secondary)' }}>{t('teacher.students.active')}</h4>
-                                <h2 style={{ fontSize: '2rem', margin: 'var(--space-2) 0', color: 'var(--color-success)' }}>{activeCount}</h2>
-                            </Card>
-                            <Card elevated>
-                                <h4 style={{ color: 'var(--text-secondary)' }}>{t('teacher.students.atRisk')}</h4>
-                                <h2 style={{ fontSize: '2rem', margin: 'var(--space-2) 0', color: 'var(--color-error)' }}>{atRiskCount}</h2>
-                            </Card>
                         </div>
 
                         {/* Filters */}
@@ -247,7 +244,13 @@ const ManageStudents: React.FC = () => {
                                     <select
                                         value={selectedLevel}
                                         onChange={(e) => setSelectedLevel(e.target.value)}
-                                        style={{ padding: '10px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}
+                                        style={{
+                                            padding: '10px',
+                                            borderRadius: 'var(--border-radius-md)',
+                                            border: '1px solid var(--border-color)',
+                                            background: 'var(--bg-surface)',
+                                            color: 'var(--text-primary)'
+                                        }}
                                     >
                                         <option value="All">{t('teacher.students.allCohorts')}</option>
                                         <option value="Level 2">{t('teacher.students.level2')}</option>
@@ -268,7 +271,6 @@ const ManageStudents: React.FC = () => {
                                         <th style={{ textAlign: 'left', padding: '16px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('teacher.students.table.name')}</th>
                                         <th style={{ textAlign: 'left', padding: '16px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('teacher.students.table.cohort')}</th>
                                         <th style={{ textAlign: 'left', padding: '16px', fontWeight: 600, color: 'var(--text-secondary)' }}>Department</th>
-                                        <th style={{ textAlign: 'left', padding: '16px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('teacher.students.table.status')}</th>
                                         <th style={{ textAlign: 'right', padding: '16px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('teacher.students.table.actions')}</th>
                                     </tr>
                                 </thead>
@@ -337,20 +339,6 @@ const ManageStudents: React.FC = () => {
                                                 </span>
                                             </td>
 
-                                            <td style={{ padding: '16px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    {student.status === 'Active' && <CheckCircle size={16} color="var(--color-success)" />}
-                                                    {student.status === 'At Risk' && <AlertCircle size={16} color="var(--color-warning)" />}
-                                                    {student.status === 'Inactive' && <User size={16} color="var(--text-tertiary)" />}
-                                                    <span style={{
-                                                        color: student.status === 'Active' ? 'var(--color-success)' :
-                                                            student.status === 'At Risk' ? 'var(--color-warning)' : 'var(--text-tertiary)',
-                                                        fontWeight: 500
-                                                    }}>
-                                                        {student.status}
-                                                    </span>
-                                                </div>
-                                            </td>
                                             <td style={{ padding: '16px', textAlign: 'right' }}>
                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                                     <select

@@ -11,11 +11,13 @@ export interface ErcProject {
     genre?: string;
     description?: string;
     owner_id: string;
+    target_student_id?: string;
     created_at: string;
     updated_at: string;
     // Joins
     tracks?: ErcTrack[];
     collaborators?: ErcCollaboration[];
+    tasks?: ErcTask[];
 }
 
 export interface ErcTrack {
@@ -57,4 +59,30 @@ export interface ErcBooking {
     created_at: string;
     // Joins
     resource?: ErcResource;
+    profile?: { name: string; avatar?: string };
+}
+
+export interface ErcAvailability {
+    id: string;
+    resource_id: string;
+    teacher_id: string;
+    start_time: string;
+    end_time: string;
+    max_slots: number;
+    current_slots: number;
+    created_at: string;
+    // Joins
+    resource?: ErcResource;
+}
+
+export interface ErcTask {
+    id: string;
+    project_id: string;
+    title: string;
+    description?: string;
+    status: 'To Do' | 'In Progress' | 'Blocked' | 'Completed';
+    assigned_to?: string;
+    due_date?: string;
+    created_at: string;
+    updated_at: string;
 }

@@ -3,11 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useQuizzes } from './QuizContext';
 import { useCurriculum } from './CurriculumContext';
 import { useSubmissions } from './SubmissionContext';
+import { useStudents } from './StudentsContext';
 
 export const useStudentProgressData = (studentId: string | undefined) => {
     const { courses, quizzes, lessons, walkthroughs } = useQuizzes();
     const { projects } = useCurriculum();
     const { submissions } = useSubmissions();
+    const { getStudentById } = useStudents();
 
     const [progressData, setProgressData] = useState<{
         overallProgress: number;
@@ -37,14 +39,26 @@ export const useStudentProgressData = (studentId: string | undefined) => {
 
                 if (error) throw error;
 
+                const student = getStudentById(studentId);
                 const studentSubmissions = submissions.filter(s => s.studentId === studentId);
+
+                // --- Filter Relevant Content ---
+                const relevantCourses = courses.filter(c =>
+                    (!c.level || c.level === student?.cohort) &&
+                    (!c.subject || c.subject === student?.department)
+                );
+
+                const relevantProjects = projects.filter(p =>
+                    (!p.cohort || p.cohort === student?.cohort) &&
+                    (!p.subject || p.subject === student?.department)
+                );
 
                 // --- Calculate Course Progress ---
                 let totalCourseItems = 0;
                 let completedCourseItems = 0;
                 const courseProgress: Record<string, number> = {};
 
-                courses.forEach(course => {
+                relevantCourses.forEach(course => {
                     const cQuizzes = quizzes.filter(q => q.courseId === course.id);
                     const cLessons = lessons.filter(l => l.courseId === course.id);
                     const cWalkthroughs = walkthroughs.filter(w => w.courseId === course.id);
@@ -72,7 +86,7 @@ export const useStudentProgressData = (studentId: string | undefined) => {
                 let completedProjectTasks = 0;
                 const projectProgress: Record<string, number> = {};
 
-                projects.forEach(project => {
+                relevantProjects.forEach(project => {
                     const totalTasks = project.tasks.length;
                     if (totalTasks === 0) {
                         projectProgress[project.id] = 0;
