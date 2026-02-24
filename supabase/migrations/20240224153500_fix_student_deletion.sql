@@ -1,3 +1,14 @@
+-- 0. Ensure the get_user_role helper function exists
+CREATE OR REPLACE FUNCTION get_user_role(user_id uuid)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT role FROM public.profiles WHERE id = user_id;
+$$;
+
 -- 1. Add DELETE policy to profiles
 -- Allow teachers and admins to delete student profiles
 CREATE POLICY "Teachers and admins can delete profiles"
