@@ -102,7 +102,13 @@ export const QuizProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (lessonsError) console.error('QuizContext: Lessons load failed:', lessonsError.message);
                 if (quizzesError) console.error('QuizContext: Quizzes load failed:', quizzesError.message);
                 if (walkthroughsError) console.error('QuizContext: Walkthroughs load failed:', walkthroughsError.message);
-                if (foldersError) console.error('QuizContext: Folders load failed:', foldersError.message);
+
+                if (foldersError) {
+                    console.error('QuizContext: Folders load failed:', foldersError.message);
+                    if (foldersError.code === 'PGRST116' || foldersError.message?.includes('schema cache')) {
+                        console.warn('QuizContext: course_folders table missing or schema cache stale. Falling back to empty folders array.');
+                    }
+                }
 
                 // Map data with fallbacks
                 if (coursesData) {
