@@ -101,7 +101,7 @@ BEGIN
 
     -- CONTENT COMPLETION
     CREATE POLICY "optimized_completion_all" ON content_completion FOR ALL TO authenticated
-        USING ((SELECT auth.uid()) = student_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+        USING ((SELECT auth.uid()) = user_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
 
     -- STUDENT ACHIEVEMENTS
     CREATE POLICY "optimized_achievements_select" ON student_achievements FOR SELECT TO authenticated
