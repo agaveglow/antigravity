@@ -27,6 +27,8 @@ BEGIN
     -- Table: submissions
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'submissions') THEN
         ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_student_id_fkey;
+        -- Preemptive type cast
+        ALTER TABLE submissions ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
         ALTER TABLE submissions ADD CONSTRAINT submissions_student_id_fkey 
             FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
             
@@ -40,6 +42,8 @@ BEGIN
     -- Table: project_assessments
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'project_assessments') THEN
         ALTER TABLE project_assessments DROP CONSTRAINT IF EXISTS project_assessments_student_id_fkey;
+        -- Preemptive type cast
+        ALTER TABLE project_assessments ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
         ALTER TABLE project_assessments ADD CONSTRAINT project_assessments_student_id_fkey 
             FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
@@ -47,6 +51,8 @@ BEGIN
     -- Table: content_completion
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_completion') THEN
         ALTER TABLE content_completion DROP CONSTRAINT IF EXISTS content_completion_user_id_fkey;
+        -- Preemptive type cast
+        ALTER TABLE content_completion ALTER COLUMN user_id TYPE UUID USING (user_id::uuid);
         ALTER TABLE content_completion ADD CONSTRAINT content_completion_user_id_fkey 
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
