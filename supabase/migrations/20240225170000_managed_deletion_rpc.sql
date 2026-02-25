@@ -3,6 +3,7 @@
 -- which then cascades to public.profiles and all related data.
 
 -- 1. Function to delete a student (Callable by Teachers/Admins)
+DROP FUNCTION IF EXISTS delete_managed_user(uuid);
 CREATE OR REPLACE FUNCTION delete_managed_user(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -37,6 +38,7 @@ END;
 $$;
 
 -- 2. Function to delete staff (Callable ONLY by Admins)
+DROP FUNCTION IF EXISTS delete_staff_auth(uuid);
 CREATE OR REPLACE FUNCTION delete_staff_auth(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
