@@ -12,6 +12,25 @@ DECLARE
 BEGIN
     -- 1. ROBUST FIXES (Policies -> Types -> Constraints)
     
+    -- Table: student_progress
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_progress') THEN
+        -- student_progress usually has a policy, drop it just in case we need to cast
+        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'student_progress' LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.student_progress', v_policy.policyname);
+        END LOOP;
+        
+        -- Type cast just in case
+        ALTER TABLE student_progress ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
+        
+        ALTER TABLE student_progress DROP CONSTRAINT IF EXISTS student_progress_student_id_fkey;
+        ALTER TABLE student_progress ADD CONSTRAINT student_progress_student_id_fkey 
+            FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+        -- Re-add optimized policy
+        CREATE POLICY "optimized_progress_all" ON student_progress FOR ALL TO authenticated
+            USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+    END IF;
+    
     -- Table: submissions
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'submissions') THEN
         -- Drop all policies that might block type alteration
