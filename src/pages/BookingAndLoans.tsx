@@ -107,9 +107,9 @@ const BookingAndLoans: React.FC = () => {
     };
 
     // --- Equipment Handlers ---
-    const handleRequestLoan = () => {
+    const handleRequestLoan = async () => {
         if (!selectedItem || !user) return;
-        const success = requestLoan({
+        const success = await requestLoan({
             equipmentId: selectedItem.id,
             userId: user.id,
             requestDate: new Date().toISOString(),
