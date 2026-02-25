@@ -172,7 +172,8 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     p_password: updates.password || '', // Empty means keep current
                     p_name: updates.name || student.name,
                     p_cohort: updates.cohort || student.cohort,
-                    p_department: updates.department || student.department || 'music'
+                    p_department: updates.department || student.department || 'music',
+                    p_user_id: id // Pass ID to handle updates correctly
                 });
 
                 if (error) {
