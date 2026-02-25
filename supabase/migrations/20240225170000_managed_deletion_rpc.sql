@@ -63,4 +63,4 @@ BEGIN
 END;
 $$;
 
-RAISE NOTICE 'Managed Deletion RPCs deployed.';
+-- Managed Deletion RPCs deployed.
