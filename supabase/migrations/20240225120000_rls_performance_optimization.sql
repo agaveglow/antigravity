@@ -15,6 +15,8 @@ BEGIN
     -- ==========================================
 
     -- Table: calendar_events (Clean up anon and multiple teacher policies)
+    DROP POLICY IF EXISTS "Teachers and admins manage calendar" ON calendar_events;
+    DROP POLICY IF EXISTS "Public read on calendar" ON calendar_events;
     DROP POLICY IF EXISTS "Teacher full access calendar" ON calendar_events;
     DROP POLICY IF EXISTS "Teachers and admins full access calendar" ON calendar_events;
     DROP POLICY IF EXISTS "Allow public read on calendar" ON calendar_events;
@@ -28,6 +30,8 @@ BEGIN
         USING (true);
 
     -- Table: badges
+    DROP POLICY IF EXISTS "Shared badges access" ON badges;
+    DROP POLICY IF EXISTS "Admin manage badges" ON badges;
     DROP POLICY IF EXISTS "Students can view badges" ON badges;
     DROP POLICY IF EXISTS "Teachers can manage badges" ON badges;
     CREATE POLICY "Shared badges access" ON badges
@@ -37,6 +41,8 @@ BEGIN
         USING ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin'));
 
     -- Table: badge_attachments
+    DROP POLICY IF EXISTS "Shared attachments access" ON badge_attachments;
+    DROP POLICY IF EXISTS "Admin manage attachments" ON badge_attachments;
     DROP POLICY IF EXISTS "Students can view attachments" ON badge_attachments;
     DROP POLICY IF EXISTS "Teachers can manage attachments" ON badge_attachments;
     CREATE POLICY "Shared attachments access" ON badge_attachments
@@ -46,6 +52,7 @@ BEGIN
         USING ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin'));
 
     -- Table: submissions (Consolidate student vs teacher SELECT)
+    DROP POLICY IF EXISTS "Submissions select access" ON submissions;
     DROP POLICY IF EXISTS "Users can view own submissions" ON submissions;
     DROP POLICY IF EXISTS "Students can view own submissions" ON submissions;
     DROP POLICY IF EXISTS "Teachers can view all submissions" ON submissions;
@@ -59,6 +66,7 @@ BEGIN
         );
 
     -- Table: profiles (Consolidate view policies)
+    DROP POLICY IF EXISTS "Profiles select policy" ON profiles;
     DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
     DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
     DROP POLICY IF EXISTS "Authenticated users can view profiles" ON profiles;
@@ -138,6 +146,7 @@ BEGIN
         );
 
     -- Table: erc_projects
+    DROP POLICY IF EXISTS "ERC projects view policy" ON erc_projects;
     DROP POLICY IF EXISTS "Users can view their own, collaborated or assigned projects" ON erc_projects;
     DROP POLICY IF EXISTS "Users can view their own or collaborated projects" ON erc_projects;
     CREATE POLICY "ERC projects view policy" ON erc_projects
