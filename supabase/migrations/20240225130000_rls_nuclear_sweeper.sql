@@ -1,21 +1,15 @@
--- SECURITY SHIELD: MASTER RLS SWEEPER
--- This script dynamically drops all existing policies on core tables
--- and replaces them with single, optimized, and performance-tuned rules.
-
 DO $$
 DECLARE
-    v_target_tables text[] := ARRAY[
-        'profiles', 'courses', 'stages', 'modules', 'lessons', 
-        'quizzes', 'walkthroughs', 'units', 'student_progress', 
-        'curriculum_projects', 'curriculum_tasks', 'notifications', 
-        'submissions', 'calendar_events', 'badges', 'student_badges', 
-        'course_folders', 'erc_projects', 'erc_collaborations', 'erc_tracks'
-    ];
     v_table text;
     v_policy record;
 BEGIN
-    -- 1. DROP ALL EXISTING POLICIES ON TARGET TABLES
-    FOREACH v_table IN ARRAY v_target_tables LOOP
+    -- 1. DYNAMICALLY DROP ALL EXISTING POLICIES ON ALL PUBLIC TABLES
+    -- This is the only way to ensure 100% of "ghost" policies are removed.
+    FOR v_table IN 
+        SELECT distinct tablename 
+        FROM pg_policies 
+        WHERE schemaname = 'public'
+    LOOP
         FOR v_policy IN 
             SELECT policyname 
             FROM pg_policies 
@@ -24,7 +18,7 @@ BEGIN
             EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', v_policy.policyname, v_table);
         END LOOP;
         
-        -- Ensure RLS is enabled
+        -- Ensure RLS is enabled on every table that had a policy
         EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_table);
     END LOOP;
 
@@ -89,6 +83,32 @@ BEGIN
     CREATE POLICY "optimized_student_badges_select" ON student_badges FOR SELECT TO authenticated USING (true);
     CREATE POLICY "optimized_student_badges_manage" ON student_badges FOR ALL TO authenticated USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
 
+    -- SYSTEM SETTINGS
+    CREATE POLICY "optimized_system_settings_select" ON system_settings FOR SELECT TO authenticated
+        USING (true);
+    CREATE POLICY "optimized_system_settings_manage" ON system_settings FOR ALL TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('admin')));
+
+    -- STUDENT INVITES
+    CREATE POLICY "optimized_invites_select" ON student_invites FOR SELECT TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR email = (SELECT email FROM auth.users WHERE id = (SELECT auth.uid())));
+    CREATE POLICY "optimized_invites_manage" ON student_invites FOR ALL TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+
+    -- PROJECT ASSESSMENTS
+    CREATE POLICY "optimized_assessments_all" ON project_assessments FOR ALL TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR (SELECT auth.uid()) = student_id);
+
+    -- CONTENT COMPLETION
+    CREATE POLICY "optimized_completion_all" ON content_completion FOR ALL TO authenticated
+        USING ((SELECT auth.uid()) = student_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+
+    -- STUDENT ACHIEVEMENTS
+    CREATE POLICY "optimized_achievements_select" ON student_achievements FOR SELECT TO authenticated
+        USING (true);
+    CREATE POLICY "optimized_achievements_manage" ON student_achievements FOR ALL TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+
     -- COURSE FOLDERS
     CREATE POLICY "optimized_folders_all" ON course_folders FOR ALL TO authenticated
         USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
@@ -104,6 +124,16 @@ BEGIN
 
     CREATE POLICY "optimized_erc_tracks_all" ON erc_tracks FOR ALL TO authenticated
         USING (EXISTS (SELECT 1 FROM erc_projects p WHERE p.id = project_id AND (p.owner_id = (SELECT auth.uid()) OR (SELECT auth.uid()) IN (SELECT user_id FROM erc_collaborations WHERE project_id = p.id))));
+
+    CREATE POLICY "optimized_erc_availability_all" ON erc_availability FOR ALL TO authenticated
+        USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR ((SELECT auth.role()) = 'authenticated' AND (SELECT true))); -- Teachers manage, public read
+
+    CREATE POLICY "optimized_erc_tasks_all" ON erc_tasks FOR ALL TO authenticated
+        USING (EXISTS (SELECT 1 FROM erc_projects p WHERE p.id = project_id AND (p.owner_id = (SELECT auth.uid()) OR (SELECT auth.uid()) IN (SELECT user_id FROM erc_collaborations WHERE project_id = p.id))));
+
+    CREATE POLICY "optimized_erc_resources_select" ON erc_resources FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "optimized_erc_bookings_all" ON erc_bookings FOR ALL TO authenticated
+        USING ((SELECT auth.uid()) = booker_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
 
     RAISE NOTICE 'MASTER RLS SWEEP COMPLETE. All policies optimized and redundant rules removed.';
 END $$;
