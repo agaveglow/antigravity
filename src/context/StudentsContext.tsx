@@ -241,10 +241,13 @@ export const StudentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setStudents(prev => prev.filter(s => s.id !== id));
 
         try {
-            // Hard delete from database
-            const { error } = await supabase.from('profiles').delete().eq('id', id);
+            // Use the RPC to delete from both Auth and Profiles (Source of Truth)
+            const { error } = await supabase.rpc('delete_managed_user', {
+                p_user_id: id
+            });
+
             if (error) throw error;
-            console.log(`StudentsContext: Student ${id} deleted from database.`);
+            console.log(`StudentsContext: Student ${id} deleted entirely from Supabase.`);
         } catch (error: any) {
             console.error('Error deleting student:', error);
             // Revert local state on error
