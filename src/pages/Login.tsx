@@ -34,7 +34,7 @@ const Login: React.FC = () => {
             setAuthStatus('Authenticating...');
 
             // If it doesn't look like an email, assume it's a username and append our internal domain
-            const loginIdentifier = email.includes('@') ? email : `${email}@erc-learn.local`;
+            const loginIdentifier = (email.includes('@') ? email : `${email}@erc-learn.local`).toLowerCase();
 
             const result = await login(loginIdentifier, password);
 
