@@ -1,154 +1,94 @@
--- SECURITY SHIELD: USER DELETION BLOCKER REMOVAL
+-- SECURITY SHIELD: USER DELETION BLOCKER REMOVAL (DEFINITIVE VERSION)
 -- This script ensures that all tables referencing auth.users or public.profiles
--- have correct ON DELETE actions to prevent 500 errors during user deletion.
+-- have correct ON DELETE actions and compatible UUID types.
 
 DO $$
 DECLARE
     v_table text;
+    v_policy record;
     v_constraint text;
     v_column text;
     v_ref_table text;
     v_sql text;
 BEGIN
-    -- 1. ROBUST FIXES (Policies -> Types -> Constraints)
+    -- 1. ROBUST FIXES (Drops Policies -> Cleans Data -> Fixes Types -> Adds Constraints -> Re-adds Policies)
     
-    -- Table: student_progress
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_progress') THEN
-        -- student_progress usually has a policy, drop it just in case we need to cast
-        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'student_progress' LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.student_progress', v_policy.policyname);
-        END LOOP;
-        
-        -- Type cast just in case
-        ALTER TABLE student_progress ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
-        
-        ALTER TABLE student_progress DROP CONSTRAINT IF EXISTS student_progress_student_id_fkey;
-        ALTER TABLE student_progress ADD CONSTRAINT student_progress_student_id_fkey 
-            FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-        -- Re-add optimized policy
-        CREATE POLICY "optimized_progress_all" ON student_progress FOR ALL TO authenticated
-            USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
-    END IF;
-    
-    -- Table: submissions
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'submissions') THEN
-        -- Drop all policies that might block type alteration
-        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'submissions' LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.submissions', v_policy.policyname);
-        END LOOP;
-        
-        -- Fix types
-        ALTER TABLE submissions ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
-        ALTER TABLE submissions ALTER COLUMN verified_by TYPE UUID USING (verified_by::uuid);
-        
-        -- Fix constraints
-        ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_student_id_fkey;
-        ALTER TABLE submissions ADD CONSTRAINT submissions_student_id_fkey 
-            FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    -- Target tables that often have dirty data or strict dependencies
+    FOR v_table IN VALUES ('student_progress'), ('submissions'), ('project_assessments'), ('content_completion') LOOP
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = v_table) THEN
             
-        ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_verified_by_fkey;
-        ALTER TABLE submissions ADD CONSTRAINT submissions_verified_by_fkey 
-            FOREIGN KEY (verified_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-        -- Re-add optimized policies
-        CREATE POLICY "optimized_submissions_all" ON submissions FOR ALL TO authenticated
-            USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
-    END IF;
-
-    -- Table: project_assessments
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'project_assessments') THEN
-        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'project_assessments' LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.project_assessments', v_policy.policyname);
-        END LOOP;
-        
-        ALTER TABLE project_assessments ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
-        
-        ALTER TABLE project_assessments DROP CONSTRAINT IF EXISTS project_assessments_student_id_fkey;
-        ALTER TABLE project_assessments ADD CONSTRAINT project_assessments_student_id_fkey 
-            FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-        CREATE POLICY "optimized_assessments_all" ON project_assessments FOR ALL TO authenticated
-            USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR (SELECT auth.uid()) = student_id);
-    END IF;
-
-    -- Table: content_completion
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_completion') THEN
-        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'content_completion' LOOP
-            EXECUTE format('DROP POLICY IF EXISTS %I ON public.content_completion', v_policy.policyname);
-        END LOOP;
-        
-        ALTER TABLE content_completion ALTER COLUMN user_id TYPE UUID USING (user_id::uuid);
-        
-        ALTER TABLE content_completion DROP CONSTRAINT IF EXISTS content_completion_user_id_fkey;
-        ALTER TABLE content_completion ADD CONSTRAINT content_completion_user_id_fkey 
-            FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-        CREATE POLICY "optimized_completion_all" ON content_completion FOR ALL TO authenticated
-            USING ((SELECT auth.uid()) = user_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
-    END IF;
-
-    -- Table: student_badges
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_badges') THEN
-        ALTER TABLE student_badges DROP CONSTRAINT IF EXISTS student_badges_student_id_fkey;
-        ALTER TABLE student_badges ADD CONSTRAINT student_badges_student_id_fkey 
-            FOREIGN KEY (student_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+            -- A. Drop ALL policies on this table (they block column type changes)
+            FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = v_table LOOP
+                EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', v_policy.policyname, v_table);
+            END LOOP;
             
-        ALTER TABLE student_badges DROP CONSTRAINT IF EXISTS student_badges_awarded_by_fkey;
-        ALTER TABLE student_badges ADD CONSTRAINT student_badges_awarded_by_fkey 
-            FOREIGN KEY (awarded_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
-    END IF;
-
-    -- Table: badges (Staff-linked)
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'badges') THEN
-        ALTER TABLE badges DROP CONSTRAINT IF EXISTS badges_created_by_fkey;
-        ALTER TABLE badges ADD CONSTRAINT badges_created_by_fkey 
-            FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
-    END IF;
-
-    -- 2. DYNAMIC CASCADE ENFORCER (Safety Net)
-    -- This block finds any other foreign keys pointing to auth.users or public.profiles
-    -- that don't have a deletion action and sets them to CASCADE or SET NULL.
-    
-    FOR v_table, v_constraint, v_column, v_ref_table IN 
-        SELECT 
-            tc.table_name, 
-            tc.constraint_name, 
-            kcu.column_name, 
-            ccu.table_name AS referenced_table_name
-        FROM 
-            information_schema.table_constraints AS tc 
-            JOIN information_schema.key_column_usage AS kcu
-              ON tc.constraint_name = kcu.constraint_name
-              AND tc.table_schema = kcu.table_schema
-            JOIN information_schema.constraint_column_usage AS ccu
-              ON ccu.constraint_name = tc.constraint_name
-              AND ccu.table_schema = tc.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY' 
-          AND tc.table_schema = 'public'
-          AND (ccu.table_name = 'users' AND ccu.table_schema = 'auth' OR ccu.table_name = 'profiles' AND ccu.table_schema = 'public')
-          AND NOT EXISTS (
-              SELECT 1 FROM information_schema.referential_constraints rc
-              WHERE rc.constraint_name = tc.constraint_name
-              AND rc.delete_rule != 'NO ACTION'
-          )
-    LOOP
-        -- Determine strategy: CASCADE for student/user data, SET NULL for metadata/audit
-        IF v_column IN ('student_id', 'user_id', 'id', 'owner_id', 'booker_id') THEN
-            v_sql := format('ALTER TABLE public.%I DROP CONSTRAINT %I, ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %s(%s) ON DELETE CASCADE', 
-                v_table, v_constraint, v_constraint, v_column, 
-                CASE WHEN v_ref_table = 'users' THEN 'auth.users' ELSE 'public.profiles' END,
-                'id');
-        ELSE
-            v_sql := format('ALTER TABLE public.%I DROP CONSTRAINT %I, ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %s(%s) ON DELETE SET NULL', 
-                v_table, v_constraint, v_constraint, v_column, 
-                CASE WHEN v_ref_table = 'users' THEN 'auth.users' ELSE 'public.profiles' END,
-                'id');
+            -- B. Clean Data and Fix Types (Cast to UUID safely)
+            -- We nullify anything that is NOT a valid UUID pattern to prevent "invalid input syntax"
+            IF v_table = 'content_completion' THEN
+                UPDATE public.content_completion 
+                SET user_id = NULL 
+                WHERE user_id IS NOT NULL AND user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+                
+                ALTER TABLE public.content_completion ALTER COLUMN user_id TYPE UUID USING (user_id::uuid);
+            ELSE
+                -- All others use 'student_id'
+                EXECUTE format('UPDATE public.%I SET student_id = NULL WHERE student_id IS NOT NULL AND student_id !~ ''^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$''', v_table);
+                EXECUTE format('ALTER TABLE public.%I ALTER COLUMN student_id TYPE UUID USING (student_id::uuid)', v_table);
+                
+                IF v_table = 'submissions' THEN
+                    -- Special handling for verified_by which was found to contain "Teacher"
+                    UPDATE public.submissions 
+                    SET verified_by = NULL 
+                    WHERE verified_by IS NOT NULL AND verified_by !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+                    
+                    ALTER TABLE public.submissions ALTER COLUMN verified_by TYPE UUID USING (verified_by::uuid);
+                END IF;
+            END IF;
+            
+            -- C. Fix Constraints (CASCADE for student/user data)
+            IF v_table = 'content_completion' THEN
+               ALTER TABLE public.content_completion DROP CONSTRAINT IF EXISTS content_completion_user_id_fkey;
+               ALTER TABLE public.content_completion ADD CONSTRAINT content_completion_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+            ELSE
+               EXECUTE format('ALTER TABLE public.%I DROP CONSTRAINT IF EXISTS %I_student_id_fkey', v_table, v_table);
+               EXECUTE format('ALTER TABLE public.%I ADD CONSTRAINT %I_student_id_fkey FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE', v_table, v_table);
+               
+               IF v_table = 'submissions' THEN
+                  ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS submissions_verified_by_fkey;
+                  ALTER TABLE public.submissions ADD CONSTRAINT submissions_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+               END IF;
+            END IF;
         END IF;
-        
-        RAISE NOTICE 'Enforcing deletion rule on %: %', v_table, v_sql;
+    END LOOP;
+
+    -- 2. RE-ADD OPTIMIZED RLS POLICIES
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_progress') THEN
+        CREATE POLICY "optimized_progress_all" ON public.student_progress FOR ALL TO authenticated USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'submissions') THEN
+        CREATE POLICY "optimized_submissions_all" ON public.submissions FOR ALL TO authenticated USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'project_assessments') THEN
+        CREATE POLICY "optimized_assessments_all" ON public.project_assessments FOR ALL TO authenticated USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR (SELECT auth.uid()) = student_id);
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_completion') THEN
+        CREATE POLICY "optimized_completion_all" ON public.content_completion FOR ALL TO authenticated USING ((SELECT auth.uid()) = user_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
+    END IF;
+
+    -- 3. DYNAMIC SAFETY NET for any other foreign keys
+    FOR v_table, v_constraint, v_column, v_ref_table IN 
+        SELECT tc.table_name, tc.constraint_name, kcu.column_name, ccu.table_name 
+        FROM information_schema.table_constraints AS tc 
+        JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
+        AND (ccu.table_name = 'users' OR ccu.table_name = 'profiles')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.referential_constraints rc WHERE rc.constraint_name = tc.constraint_name AND rc.delete_rule != 'NO ACTION')
+    LOOP
+        v_sql := format('ALTER TABLE public.%I DROP CONSTRAINT %I, ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %s(id) ON DELETE CASCADE', 
+            v_table, v_constraint, v_constraint, v_column, CASE WHEN v_ref_table = 'users' THEN 'auth.users' ELSE 'public.profiles' END);
         EXECUTE v_sql;
     END LOOP;
 
-    RAISE NOTICE 'USER DELETION BLOCKERS REMOVED. You can now delete users safely.';
+    RAISE NOTICE 'DEFINITIVE BLOCKER-KILLER COMPLETE.';
 END $$;
