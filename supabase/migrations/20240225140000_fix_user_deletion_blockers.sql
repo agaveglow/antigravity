@@ -10,51 +10,63 @@ DECLARE
     v_ref_table text;
     v_sql text;
 BEGIN
-    -- 1. SPECIFIC FIXES FOR KNOWN BLOCKERS
+    -- 1. ROBUST FIXES (Policies -> Types -> Constraints)
     
-    -- Tables that should be wiped when a student is deleted (CASCADE)
-    -- student_progress, submissions, project_assessments, content_completion, student_badges
-    
-    -- We'll use a helper logic to drop and recreate constraints for reliability
-    
-    -- Table: student_progress
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_progress') THEN
-        ALTER TABLE student_progress DROP CONSTRAINT IF EXISTS student_progress_student_id_fkey;
-        ALTER TABLE student_progress ADD CONSTRAINT student_progress_student_id_fkey 
-            FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-
     -- Table: submissions
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'submissions') THEN
-        ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_student_id_fkey;
-        -- Preemptive type cast
+        -- Drop all policies that might block type alteration
+        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'submissions' LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.submissions', v_policy.policyname);
+        END LOOP;
+        
+        -- Fix types
         ALTER TABLE submissions ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
+        ALTER TABLE submissions ALTER COLUMN verified_by TYPE UUID USING (verified_by::uuid);
+        
+        -- Fix constraints
+        ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_student_id_fkey;
         ALTER TABLE submissions ADD CONSTRAINT submissions_student_id_fkey 
             FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
             
         ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_verified_by_fkey;
-        -- Ensure the column is the correct type (UUID) before adding the FK
-        ALTER TABLE submissions ALTER COLUMN verified_by TYPE UUID USING (verified_by::uuid);
         ALTER TABLE submissions ADD CONSTRAINT submissions_verified_by_fkey 
             FOREIGN KEY (verified_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+        -- Re-add optimized policies
+        CREATE POLICY "optimized_submissions_all" ON submissions FOR ALL TO authenticated
+            USING (student_id = (SELECT auth.uid()) OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
     END IF;
 
     -- Table: project_assessments
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'project_assessments') THEN
-        ALTER TABLE project_assessments DROP CONSTRAINT IF EXISTS project_assessments_student_id_fkey;
-        -- Preemptive type cast
+        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'project_assessments' LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.project_assessments', v_policy.policyname);
+        END LOOP;
+        
         ALTER TABLE project_assessments ALTER COLUMN student_id TYPE UUID USING (student_id::uuid);
+        
+        ALTER TABLE project_assessments DROP CONSTRAINT IF EXISTS project_assessments_student_id_fkey;
         ALTER TABLE project_assessments ADD CONSTRAINT project_assessments_student_id_fkey 
             FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+        CREATE POLICY "optimized_assessments_all" ON project_assessments FOR ALL TO authenticated
+            USING (((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')) OR (SELECT auth.uid()) = student_id);
     END IF;
 
     -- Table: content_completion
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_completion') THEN
-        ALTER TABLE content_completion DROP CONSTRAINT IF EXISTS content_completion_user_id_fkey;
-        -- Preemptive type cast
+        FOR v_policy IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'content_completion' LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.content_completion', v_policy.policyname);
+        END LOOP;
+        
         ALTER TABLE content_completion ALTER COLUMN user_id TYPE UUID USING (user_id::uuid);
+        
+        ALTER TABLE content_completion DROP CONSTRAINT IF EXISTS content_completion_user_id_fkey;
         ALTER TABLE content_completion ADD CONSTRAINT content_completion_user_id_fkey 
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+        CREATE POLICY "optimized_completion_all" ON content_completion FOR ALL TO authenticated
+            USING ((SELECT auth.uid()) = user_id OR ((SELECT role FROM profiles WHERE id = (SELECT auth.uid())) IN ('teacher', 'admin')));
     END IF;
 
     -- Table: student_badges
