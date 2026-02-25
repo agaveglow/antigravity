@@ -14,8 +14,6 @@ BEGIN
     END IF;
 
     -- 2. DYNAMICALLY FIX EVERY FOREIGN KEY BLOCKING DELETIONS
-    -- This searches the database for any table that references auth.users or profiles
-    -- and ensures they have ON DELETE CASCADE set.
     FOR v_rec IN (
         SELECT 
             tc.table_schema, 
@@ -49,22 +47,20 @@ BEGIN
     END LOOP;
 
     -- 3. REPAIR ALL AUTH USERS (LOGIN FIX)
-    -- This ensures every student record is valid for the dashboard and the login page.
     UPDATE auth.users
     SET 
         instance_id = v_instance_id,
         aud = 'authenticated',
         role = 'authenticated',
         email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-        -- Ensure the email matches the "username@erc-learn.local" format
         email = CASE 
             WHEN email NOT LIKE '%@%' THEN email || '@erc-learn.local'
-            WHEN email LIKE '%@erc-learn.local' THEN email -- already correct
-            ELSE email -- custom email, leave it
+            WHEN email LIKE '%@erc-learn.local' THEN email
+            ELSE email
         END
     WHERE id IN (SELECT id FROM public.profiles WHERE role = 'student');
 
-    -- Restore any missing display names in auth metadata
+    -- Restore any missing display names
     UPDATE auth.users u
     SET raw_user_meta_data = jsonb_build_object('full_name', p.name)
     FROM public.profiles p
