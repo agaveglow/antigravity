@@ -31,6 +31,8 @@ BEGIN
             FOREIGN KEY (student_id) REFERENCES auth.users(id) ON DELETE CASCADE;
             
         ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_verified_by_fkey;
+        -- Ensure the column is the correct type (UUID) before adding the FK
+        ALTER TABLE submissions ALTER COLUMN verified_by TYPE UUID USING (verified_by::uuid);
         ALTER TABLE submissions ADD CONSTRAINT submissions_verified_by_fkey 
             FOREIGN KEY (verified_by) REFERENCES auth.users(id) ON DELETE SET NULL;
     END IF;
